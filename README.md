@@ -26,11 +26,11 @@ npm run dev                               # opens Chrome with the extension load
 | `lib/model.ts` — provider-agnostic call | done, works on Subconscious + Anthropic |
 | `entrypoints/background.ts` — orchestration | done |
 | `entrypoints/popup` — settings | done |
-| results panel on the page | **not built** |
+| `components/Panel.tsx` — results panel | done, shadow-root React |
 | history / weak-pattern stats | **not built** |
 
-Never browser-verified end to end. `npm run dev`, set a key in the popup, click
-**Test the whole pipeline**.
+Verified end to end in a browser on 2026-09-25: detection, validation, model
+call, caching and the panel.
 
 ## How it works
 

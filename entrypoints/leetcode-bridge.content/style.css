@@ -1,0 +1,165 @@
+/* Inside a shadow root, so LeetCode's CSS can't reach in and ours can't leak
+   out. Only inherited properties cross the boundary, hence the explicit reset. */
+:host {
+  all: initial;
+  --bg: #fff;
+  --fg: #18181b;
+  --muted: #71717a;
+  --line: #e4e4e7;
+  --code-bg: #f4f4f5;
+}
+
+@media (prefers-color-scheme: dark) {
+  :host {
+    --bg: #1c1c1f;
+    --fg: #fafafa;
+    --muted: #a1a1aa;
+    --line: #2f2f35;
+    --code-bg: #26262b;
+  }
+}
+
+.lc-panel, .lc-pill {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 2147483000;
+  font: 13px/1.55 ui-sans-serif, system-ui, -apple-system, sans-serif;
+  color: var(--fg);
+  box-sizing: border-box;
+}
+.lc-panel *, .lc-pill * { box-sizing: border-box; }
+
+.lc-pill {
+  padding: 8px 14px;
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  background: var(--bg);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.12);
+  cursor: pointer;
+  font-weight: 500;
+}
+.lc-pill:hover { border-color: var(--muted); }
+
+.lc-panel {
+  width: 380px;
+  max-height: 72vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgb(0 0 0 / 0.18);
+  overflow: hidden;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+  font-size: 12px;
+  letter-spacing: 0.01em;
+}
+
+.lc-x {
+  border: 0; background: none; cursor: pointer;
+  color: var(--muted); font-size: 18px; line-height: 1; padding: 0 2px;
+}
+.lc-x:hover { color: var(--fg); }
+
+.lc-body {
+  padding: 14px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.lc-verdict {
+  align-self: flex-start;
+  padding: 3px 10px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.lc-verdict.optimal { background: #dcfce7; color: #15803d; }
+.lc-verdict.acceptable { background: #fef9c3; color: #854d0e; }
+.lc-verdict.suboptimal { background: #fee2e2; color: #b91c1c; }
+.lc-verdict.error { background: #f4f4f5; color: #52525b; }
+
+.lc-cx {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--code-bg);
+  border-radius: 8px;
+}
+.lc-cx > div { display: flex; flex-direction: column; }
+.lc-cx span { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+.lc-cx b { font-size: 15px; font-variant-numeric: tabular-nums; }
+.lc-cx i { font-style: normal; font-size: 11px; color: var(--muted); }
+.lc-cx .arrow { color: var(--muted); font-size: 16px; }
+
+.lc-reason, .lc-hint { margin: 0; color: var(--muted); font-size: 12px; }
+.lc-hint { color: var(--fg); }
+
+.lc-finding { border-top: 1px solid var(--line); padding-top: 10px; }
+.lc-finding p { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
+.lc-fhead { font-weight: 550; display: flex; align-items: center; gap: 6px; }
+
+.lc-sev {
+  font-size: 9px; padding: 2px 5px; border-radius: 3px;
+  text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;
+}
+.lc-sev.major { background: #fee2e2; color: #b91c1c; }
+.lc-sev.minor { background: #fef9c3; color: #854d0e; }
+.lc-sev.nit { background: var(--code-bg); color: var(--muted); }
+
+.lc-snip, .lc-code {
+  margin: 6px 0 0;
+  padding: 8px 10px;
+  background: var(--code-bg);
+  border-radius: 6px;
+  font: 11px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-x: auto;
+}
+.lc-code { max-height: 300px; overflow-y: auto; }
+
+.lc-canon { border-top: 1px solid var(--line); padding-top: 10px; }
+.lc-toggle {
+  border: 0; background: none; padding: 0; cursor: pointer;
+  color: var(--fg); font: inherit; font-weight: 550;
+}
+
+.lc-tags { display: flex; flex-wrap: wrap; gap: 5px; }
+.lc-tag {
+  font-size: 11px; padding: 2px 8px; border-radius: 99px;
+  background: var(--code-bg); color: var(--muted);
+}
+
+footer {
+  padding: 8px 14px;
+  border-top: 1px solid var(--line);
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.lc-wait { flex-direction: row; align-items: center; gap: 10px; color: var(--muted); }
+.lc-spin {
+  width: 14px; height: 14px; flex: none;
+  border: 2px solid var(--line); border-top-color: var(--muted);
+  border-radius: 50%;
+  animation: lc-spin 0.7s linear infinite;
+}
+@keyframes lc-spin { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .lc-spin { animation-duration: 2s; }
+}
