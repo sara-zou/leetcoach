@@ -1,0 +1,62 @@
+[
+  {
+    "api": "fetch",
+    "method": "POST",
+    "url": "/problems/brace-expansion-ii/interpret_solution/",
+    "req": {
+      "lang": "java",
+      "question_id": "1188",
+      "typed_code": "<95 chars>",
+      "data_input": "\"{a,b}{c,{d,e}}\"\n\"{{a,z},a{b,c},{ab,z}}\""
+    },
+    "res": {
+      "interpret_id": "runcode_1790305053.453048_i5qoZmF1Nq",
+      "test_case": "\"{a,b}{c,{d,e}}\"\n\"{{a,z},a{b,c},{ab,z}}\""
+    }
+  },
+  { "api": "fetch", "method": "GET",
+    "url": "/submissions/detail/runcode_1790305053.453048_i5qoZmF1Nq/check/",
+    "req": null, "res": { "state": "PENDING" } },
+  { "api": "fetch", "method": "GET",
+    "url": "/submissions/detail/runcode_1790305053.453048_i5qoZmF1Nq/check/",
+    "req": null, "res": { "state": "PENDING" } },
+  { "api": "fetch", "method": "GET",
+    "url": "/submissions/detail/runcode_1790305053.453048_i5qoZmF1Nq/check/",
+    "req": null, "res": { "state": "PENDING" } },
+  {
+    "api": "fetch",
+    "method": "GET",
+    "url": "/submissions/detail/runcode_1790305053.453048_i5qoZmF1Nq/check/",
+    "req": null,
+    "res": {
+      "status_code": 20,
+      "lang": "java",
+      "run_success": false,
+      "compile_error": "<redacted>",
+      "full_compile_error": "<redacted>",
+      "status_runtime": "N/A",
+      "memory": 0,
+      "code_answer": [],
+      "code_output": "<redacted>",
+      "std_output_list": [""],
+      "task_finish_time": 1790305055585,
+      "task_name": "judger.runcodetask.RunCode",
+      "total_correct": null,
+      "total_testcases": null,
+      "runtime_percentile": null,
+      "status_memory": "N/A",
+      "memory_percentile": null,
+      "pretty_lang": "Java",
+      "submission_id": "runcode_1790305053.453048_i5qoZmF1Nq",
+      "status_msg": "Compile Error",
+      "state": "SUCCESS"
+    }
+  },
+  {
+    "api": "fetch",
+    "method": "POST",
+    "url": "/problems/brace-expansion-ii/submit/",
+    "req": { "lang": "java", "question_id": "1188", "typed_code": "<95 chars>" },
+    "res": { "submission_id": 2152545849 }
+  }
+]
