@@ -7,7 +7,7 @@
  * bridge is untrusted input from a hostile source, and must be validated
  * structurally before it reaches anything that can spend money or hold a key.
  */
-import type { TerminalEvent } from './detect';
+import type { TerminalEvent } from './detect.ts';
 
 export const CHANNEL = 'leetcoach:v0';
 
