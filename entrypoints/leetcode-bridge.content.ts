@@ -50,6 +50,13 @@ export default defineContentScript({
     // ---- independent DOM cross-check ----
     // data-e2e-locator attributes are LeetCode's own test hooks; they have
     // outlived every CSS class but churned once (data-cy -> data-e2e-locator).
+    //
+    // The DOM usually wins this race: LeetCode renders the verdict before our
+    // handler finishes reading the response body, which we do asynchronously so
+    // the page is never blocked. So a miss can only be declared after waiting —
+    // looking only backwards in time reports a false alarm on every submission,
+    // and a cross-check that cries wolf is worse than none.
+    const GRACE_MS = 8_000;
     const seen = new Set<string>();
     const observer = new MutationObserver(() => {
       const el = document.querySelector('[data-e2e-locator="submission-result"]');
@@ -57,13 +64,28 @@ export default defineContentScript({
       if (!text || seen.has(text)) return;
       seen.add(text);
 
-      const gap = Date.now() - lastNetworkVerdictAt;
-      const agreed = lastNetworkVerdictAt > 0 && gap < 15_000;
+      const domAt = Date.now();
+      if (lastNetworkVerdictAt > 0 && domAt - lastNetworkVerdictAt < GRACE_MS) {
+        report(text, lastNetworkVerdictAt - domAt); // network got there first
+        return;
+      }
+
+      ctx.setTimeout(() => {
+        const agreed = lastNetworkVerdictAt > domAt - GRACE_MS;
+        report(text, agreed ? lastNetworkVerdictAt - domAt : null);
+      }, GRACE_MS);
+    });
+
+    function report(text: string, deltaMs: number | null) {
+      const agreed = deltaMs !== null;
+      const when = agreed
+        ? `network patch agreed (${deltaMs! >= 0 ? `${deltaMs}ms later` : `${-deltaMs!}ms earlier`})`
+        : `NETWORK PATCH MISSED THIS (waited ${GRACE_MS / 1000}s)`;
       console.log(
-        `%c[leetcoach:dom] "${text}" — ${agreed ? `network patch agreed (${gap}ms earlier)` : 'NETWORK PATCH MISSED THIS'}`,
+        `%c[leetcoach:dom] "${text}" — ${when}`,
         `background:${agreed ? '#2563eb' : '#dc2626'};color:#fff;padding:2px 6px;border-radius:3px`,
       );
-    });
+    }
 
     observer.observe(document.documentElement, { childList: true, subtree: true });
     ctx.onInvalidated(() => observer.disconnect()); // no leaked observers on reload

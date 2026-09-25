@@ -147,3 +147,20 @@ test('a Run polled repeatedly emits only one ignored event', () => {
   assert.equal(evs.filter((e) => e.kind === 'ignored').length, 1);
   assert.equal(terminals(evs).length, 0);
 });
+
+test('an undocumented judge state is treated as "keep waiting", not dropped', () => {
+  // RUNNING_TESTS was observed in real traffic on 2026-09-25 and appears in no
+  // public client. Enumerating known waiting states would have dropped this
+  // submission; whitelisting FINISHED degrades safely instead.
+  const d = new SubmissionDetector();
+  d.observe(submitUrl(), 'POST', submitBody(), JSON.stringify({ submission_id: '5001' }));
+
+  for (const state of ['PENDING', 'RUNNING_TESTS', 'SOME_FUTURE_STATE', 'STARTED']) {
+    const evs = d.observe(checkUrl('5001'), 'GET', undefined, JSON.stringify({ state }));
+    assert.equal(terminals(evs).length, 0, `${state} must not be terminal`);
+  }
+
+  const done = terminals(d.observe(checkUrl('5001'), 'GET', undefined, judged(10)));
+  assert.equal(done.length, 1, 'and the real verdict still fires afterwards');
+  assert.equal(done[0]!.accepted, true);
+});

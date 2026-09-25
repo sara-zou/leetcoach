@@ -44,8 +44,15 @@ export const STATUS = {
 export const JUDGE_STATE = {
   PENDING: 'PENDING',
   STARTED: 'STARTED',
-  FINISHED: 'SUCCESS', // <- their "SUCCESS"
+  RUNNING_TESTS: 'RUNNING_TESTS', // observed 2026-09-25; undocumented elsewhere
+  FINISHED: 'SUCCESS',            // <- their "SUCCESS"
 } as const;
+
+// NOTE: we deliberately whitelist FINISHED rather than enumerating the waiting
+// states. RUNNING_TESTS was discovered only by watching a real submission, and
+// there may be more. Checking `state !== FINISHED` treats any unknown state as
+// "keep waiting", which degrades safely; enumerating the waiting states would
+// have dropped this submission entirely.
 
 /** What we remember about a POST while waiting for its verdict. */
 export type Origin = {
