@@ -3,8 +3,12 @@
  * terminal. Exercises everything the background worker does except storage.
  *
  *   LEETCOACH_KEY=… npm run try
- *   LEETCOACH_KEY=… npm run try -- anthropic claude-sonnet-5
+ *   LEETCOACH_KEY=… npm run try -- anthropic claude-opus-5
+ *
+ * Set LEETCOACH_SAVE=path to dump the raw model response — real output makes
+ * better parser fixtures than anything we invent.
  */
+import { writeFileSync } from 'node:fs';
 import { analyze } from '../lib/model.ts';
 import { PROVIDERS, defaultModel, type ProviderId } from '../lib/providers.ts';
 
@@ -61,5 +65,10 @@ if (a.canonical) {
   console.log(`\ncanonical (${a.canonical.language}):`);
   console.log(a.canonical.code.split('\n').map((l) => '  ' + l).join('\n'));
 }
+if (process.env.LEETCOACH_SAVE) {
+  writeFileSync(process.env.LEETCOACH_SAVE, result.raw);
+  console.log(`\nraw response -> ${process.env.LEETCOACH_SAVE}`);
+}
+
 const u = result.usage as any;
 console.log(`\n--- ${result.ms}ms · in ${u?.input_tokens} / out ${u?.output_tokens} tokens ---`);

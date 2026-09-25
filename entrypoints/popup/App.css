@@ -93,3 +93,24 @@ code {
   background: #1a1a1a;
   color: #fff;
 }
+
+.link { font-size: 11px; color: #2563eb; text-decoration: none; margin-top: -4px; }
+.link:hover { text-decoration: underline; }
+
+.result { border: 1px solid #e5e5e5; border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+
+.verdict { align-self: flex-start; padding: 2px 10px; border-radius: 99px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+.verdict.optimal { background: #dcfce7; color: #15803d; }
+.verdict.acceptable { background: #fef9c3; color: #854d0e; }
+.verdict.suboptimal { background: #fee2e2; color: #b91c1c; }
+
+.cx { display: flex; gap: 14px; font-size: 12px; color: #555; }
+.cx b { color: #111; font-variant-numeric: tabular-nums; }
+
+.finding { font-size: 12px; line-height: 1.5; }
+.sev { font-size: 10px; padding: 1px 5px; border-radius: 3px; margin-right: 4px; text-transform: uppercase; }
+.sev.major { background: #fee2e2; color: #b91c1c; }
+.sev.minor { background: #fef9c3; color: #854d0e; }
+.sev.nit { background: #f1f5f9; color: #475569; }
+
+.hint.ok { color: #15803d; }
