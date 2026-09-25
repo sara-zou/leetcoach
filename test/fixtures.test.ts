@@ -78,3 +78,33 @@ test('real traffic: state lives on the terminal response as the LAST key', () =>
   assert.equal((terminal.res as any).state, 'SUCCESS');
   assert.equal(keys.at(-1), 'state', 'state is the last key — do not rely on key order');
 });
+
+test('real traffic: Submit uses a /v2/ check URL that Run does not', () => {
+  // Captured 2026-09-25. Getting this wrong is a silent total failure: the
+  // extension matches every Run and no submissions, with all tests green.
+  const runUrl = 'https://leetcode.com/submissions/detail/runcode_1790305053.453048_i5qoZmF1Nq/check/';
+  const submitUrl = 'https://leetcode.com/submissions/detail/2152555003/v2/check/';
+
+  assert.equal(SubmissionDetector.isInteresting(runUrl), true);
+  assert.equal(SubmissionDetector.isInteresting(submitUrl), true, 'the /v2/ submit endpoint must match');
+
+  const d = new SubmissionDetector();
+  d.observe(
+    'https://leetcode.com/problems/diameter-of-binary-tree/submit/',
+    'POST',
+    JSON.stringify({ lang: 'java', question_id: '543', typed_code: 'class Solution {}' }),
+    JSON.stringify({ submission_id: 2152555003 }),
+  );
+  const evs = d.observe(submitUrl, 'GET', undefined, JSON.stringify({
+    state: 'SUCCESS', status_code: 10, status_msg: 'Accepted',
+    total_correct: 106, total_testcases: 106,
+    status_runtime: '0 ms', runtime_percentile: 100,
+    status_memory: '42.1 MB', memory_percentile: 61.2, lang: 'java',
+  }));
+
+  const t = evs.filter((e) => e.kind === 'terminal').map((e) => e.data as TerminalEvent);
+  assert.equal(t.length, 1, 'a real submission must produce a terminal event');
+  assert.equal(t[0]!.accepted, true);
+  assert.equal(t[0]!.id, '2152555003');
+  assert.equal(t[0]!.slug, 'diameter-of-binary-tree');
+});

@@ -10,7 +10,13 @@
 //   4. run:  copy(__wide())
 (() => {
   const INTERESTING = /submit|check|graphql|submission|interpret|judge/i;
-  const log = [];
+  const KEY = '__leetcoach_wide';
+
+  // Survive page reloads. If clicking Submit navigates or reloads, an
+  // in-memory array would vanish along with the answer we're looking for.
+  let log = [];
+  try { log = JSON.parse(sessionStorage.getItem(KEY) || '[]'); } catch {}
+  const save = () => { try { sessionStorage.setItem(KEY, JSON.stringify(log)); } catch {} };
 
   const SENSITIVE = new Set([
     'typed_code', 'code', 'std_output', 'code_output', 'expected_output',
@@ -41,7 +47,7 @@
     const interesting = INTERESTING.test(p);
     const e = { t: new Date().toISOString().slice(11, 23), api, method, url: p };
     if (interesting) { e.req = parse(req); e.res = parse(res); }
-    log.push(e);
+    log.push(e); save();
     console.log(
       `%c[${interesting ? 'HIT' : '   '}]`,
       `background:${interesting ? '#16a34a' : '#999'};color:#fff;padding:1px 5px`,
@@ -73,12 +79,12 @@
   const OWS = window.WebSocket;
   window.WebSocket = function (url, ...rest) {
     const ws = new OWS(url, ...rest);
-    log.push({ t: new Date().toISOString().slice(11, 23), api: 'websocket', method: 'OPEN', url: String(url) });
+    log.push({ t: new Date().toISOString().slice(11, 23), api: 'websocket', method: 'OPEN', url: String(url) }); save();
     console.log('%c[ WS ]', 'background:#7c3aed;color:#fff;padding:1px 5px', String(url));
     ws.addEventListener('message', (m) => {
       const d = typeof m.data === 'string' ? m.data.slice(0, 200) : '<binary>';
       if (INTERESTING.test(d)) {
-        log.push({ t: new Date().toISOString().slice(11, 23), api: 'websocket', method: 'MSG', url: String(url), res: d });
+        log.push({ t: new Date().toISOString().slice(11, 23), api: 'websocket', method: 'MSG', url: String(url), res: d }); save();
         console.log('%c[WSMSG]', 'background:#7c3aed;color:#fff;padding:1px 5px', d);
       }
     });

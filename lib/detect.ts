@@ -9,7 +9,12 @@
 // break the match and so /submit/ can't accidentally match /submit/foo.
 export const SUBMIT_RE = /\/problems\/([^/]+)\/submit\/?(?:\?|$)/;
 export const INTERPRET_RE = /\/problems\/([^/]+)\/interpret_solution\/?(?:\?|$)/;
-export const CHECK_RE = /\/submissions\/detail\/([^/]+)\/check\/?(?:\?|$)/;
+// NOTE: Run and Submit use DIFFERENT check URLs, confirmed by capture:
+//   Run    /submissions/detail/runcode_1790305053.453048_i5qoZmF1Nq/check/
+//   Submit /submissions/detail/2152555003/v2/check/
+// The optional version segment is not cosmetic — without it this regex matches
+// every Run and zero submissions, which is a silent total failure.
+export const CHECK_RE = /\/submissions\/detail\/([^/]+)\/(?:v\d+\/)?check\/?(?:\?|$)/;
 
 /**
  * Judge verdicts. 10 is the ONLY accepting value — everything else is a
