@@ -87,3 +87,8 @@ A Claude Pro/Max subscription is **not** API access — the API bills separately
 - Storage keys need an area prefix (`local:key`) or wxt throws.
 - Chrome kills an idle MV3 service worker after ~30s; module-level state in the
   background does not survive. Anything persistent goes through storage.
+- `web-ext.config.ts` pins the dev browser to a profile under `.wxt/chrome-data`.
+  Without it web-ext makes a throwaway profile each run, so your API key is gone
+  every time you restart `npm run dev`. The profile is gitignored.
+- The API key set in the popup and the `LEETCOACH_KEY` env var used by
+  `npm run try` are separate stores. Setting one does not set the other.
