@@ -39,9 +39,17 @@ export type HistoryEntry = {
   slug: string;
   solvedAt: number;
   language: string;
-  /** The full critique, minus `canonical` — that is cached separately by
-   *  problem and language, so storing it per entry would duplicate it. */
-  analysis: StoredAnalysis;
+  /**
+   * Whether the judge accepted it at all. Failed attempts are recorded too —
+   * they cost nothing to store, no model call is made for them, and "TLE'd
+   * this three times before passing" is the most informative thing the
+   * extension sees.
+   */
+  outcome: 'accepted' | 'failed';
+  /** For failures: "Wrong Answer", "Time Limit Exceeded", ... */
+  statusMsg?: string;
+  /** Present only for accepted submissions — nothing is analysed otherwise. */
+  analysis?: StoredAnalysis;
   runtimePercentile?: number;
   /** Filled in later, if the user asks for it. The most re-readable thing the
    *  extension produces, and what would make spaced repetition worth building. */
@@ -62,12 +70,16 @@ let historyQueue: Promise<unknown> = Promise.resolve();
 
 export const historyItem = storage.defineItem<HistoryEntry[]>('local:history', {
   fallback: [],
-  version: 2,
+  version: 3,
   migrations: {
     // v1 stored only `verdict` and `patterns` at the top level, so a past
     // analysis could not be reviewed — the findings were never persisted.
     // Old entries keep what they had; the rest is genuinely gone.
-    2: (entries: any[]): HistoryEntry[] =>
+    // v2 recorded only accepted submissions, so every existing entry is one.
+    3: (entries: any[]): HistoryEntry[] =>
+      (entries ?? []).map((e) => ({ ...e, outcome: 'accepted' as const })),
+
+    2: (entries: any[]): any[] =>
       (entries ?? []).map((e) => ({
         id: e.id,
         slug: e.slug,

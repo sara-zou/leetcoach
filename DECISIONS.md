@@ -126,6 +126,37 @@ the obvious next split, since a solution can match on time and lose on space.
 
 ---
 
+## 9. Failed submissions are recorded, never analysed
+
+**Decision.** Store every attempt with an `outcome` of `accepted` or `failed`.
+Failures get a history entry and no model call.
+
+**Why record them.** They are the most informative signal available and they
+were being thrown away. An accepted-first-try solve and a fourth-attempt solve
+looked identical, and "TLE'd three monotonic-stack problems this month" is a
+sharper weakness signal than any verdict on a solution that passed.
+
+**Why not analyse them.** The value proposition is reviewing work that already
+passed. Critiquing failures is a different prompt, and it would bill on every
+attempt during exactly the period when someone is submitting repeatedly.
+Recording is free.
+
+**The retroactive trick.** A failure carries no analysis and therefore no
+patterns. But once that problem is eventually solved, the solve names the
+technique — so `weakPatterns` attributes earlier failures on the same problem to
+it. Without this, repeatedly failing at a pattern stays invisible and only
+successes count, which inverts the signal.
+
+**Note the axis.** This is orthogonal to decision 7. Verdicts grade accepted
+solutions by complexity class; `outcome` records whether the judge accepted it
+at all. Ranking uses both: outright failure outranks a wrong complexity class,
+which outranks an untidy route to the right one.
+
+**Revisit if:** an "explain why this failed" button is wanted. That would be a
+model call on failures, and the spend cap should exist first.
+
+---
+
 ## 8. `unlimitedStorage`, rather than evicting
 
 **Decision.** Take the permission instead of adding LRU eviction to the

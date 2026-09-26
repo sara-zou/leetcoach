@@ -3,7 +3,7 @@ import { analyze, askFollowup, type ModelConfig } from '../lib/model';
 import {
   providerItem, apiKeysItem, modelsItem,
   getCanonical, setCanonical, appendHistory,
-  setContext, getContext, setHistoryTakeaway, forStorage,
+  setContext, getContext, setHistoryTakeaway, forStorage, type HistoryEntry,
 } from '../lib/storage';
 import { defaultModel } from '../lib/providers';
 import type { FollowupKind } from '../lib/prompt';
@@ -92,7 +92,17 @@ async function handleSubmission(payload: unknown) {
   // revalidate at the privilege boundary, even though the bridge already did
   const t = parseTerminal(payload);
   if (!t) return { ok: false, kind: 'invalid', message: 'Malformed submission event.' };
-  if (!t.accepted) return { ok: false, kind: 'skipped', message: `Not accepted (${t.statusMsg}).` };
+  // A failed attempt is recorded but never analysed: no model call, no cost.
+  // "TLE'd this three times before passing" is the most informative thing we
+  // see, and discarding it made an accepted-first-try solve and a fourth-try
+  // solve look identical.
+  if (!t.accepted) {
+    await recordAttempt({
+      id: t.id, slug: t.slug, solvedAt: Date.now(), language: t.lang ?? 'unknown',
+      outcome: 'failed', statusMsg: t.statusMsg,
+    });
+    return { ok: false, kind: 'skipped', message: `Not accepted (${t.statusMsg}).`, recorded: true };
+  }
   if (!t.typedCode) return { ok: false, kind: 'skipped', message: 'No source code captured.' };
 
   const cfg = await loadConfig();
@@ -133,27 +143,35 @@ async function handleSubmission(payload: unknown) {
   // Keep what a follow-up would need. Session-scoped, so it never accumulates.
   await setContext(t.id, { slug: t.slug, lang, code: t.typedCode, analysis: result.analysis });
 
-  let recorded = true;
-  try {
-    await appendHistory({
-      id: t.id,
-      slug: t.slug,
-      solvedAt: Date.now(),
-      language: lang,
-      analysis: forStorage(result.analysis),
-      runtimePercentile: t.runtimePercentile,
-    });
-  } catch (e) {
-    // Most likely a storage quota failure. The analysis is still worth showing,
-    // but it must not silently claim to have been recorded.
-    console.error('[leetcoach] history write failed', e);
-    recorded = false;
-  }
+  const recorded = await recordAttempt({
+    id: t.id,
+    slug: t.slug,
+    solvedAt: Date.now(),
+    language: lang,
+    outcome: 'accepted',
+    analysis: forStorage(result.analysis),
+    runtimePercentile: t.runtimePercentile,
+  });
 
   // `raw` is the full model response text. The panel never reads it, and it
   // echoes the user's code back across a message boundary. Drop it here.
   const { raw: _raw, ...forPanel } = result;
   return { ...forPanel, cacheHit: !!canonical, cached: stored, recorded };
+}
+
+/**
+ * Write one history entry. Returns false rather than throwing, since a storage
+ * failure should not lose an analysis that is worth showing — but it must not
+ * silently claim to have recorded it either.
+ */
+async function recordAttempt(entry: HistoryEntry): Promise<boolean> {
+  try {
+    await appendHistory(entry);
+    return true;
+  } catch (e) {
+    console.error('[leetcoach] history write failed', e);
+    return false;
+  }
 }
 
 /** Lets the popup exercise the whole pipeline without solving a problem. */

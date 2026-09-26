@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { weakPatterns, recent, summarise, takeaways } from '../lib/history.ts';
+import { weakPatterns, recent, summarise, takeaways, struggles, failureReasons } from '../lib/history.ts';
 import type { HistoryEntry } from '../lib/storage.ts';
 
 let clock = 1_000;
@@ -13,6 +13,7 @@ const entry = (
   slug,
   solvedAt: clock++,
   language: 'python3',
+  outcome: 'accepted',
   analysis: {
     verdict, patterns,
     user: { time: 'O(n^2)', space: 'O(1)', reasoning: '' },
@@ -90,6 +91,8 @@ test('summarise counts verdicts, languages and takeaways', () => {
   assert.equal(s.total, 3);
   assert.equal(s.optimal, 1);
   assert.equal(s.missed, 2);
+  assert.equal(s.accepted, 3);
+  assert.equal(s.failed, 0);
   assert.equal(s.withTakeaway, 1);
   assert.deepEqual(s.languages, [{ language: 'python3', count: 2 }, { language: 'java', count: 1 }]);
 });
@@ -108,4 +111,85 @@ test('empty history does not throw anywhere', () => {
   assert.deepEqual(recent([]), []);
   assert.deepEqual(takeaways([]), []);
   assert.equal(summarise([]).total, 0);
+});
+
+// --- failed attempts -------------------------------------------------------
+
+const failed = (slug: string, statusMsg: string): HistoryEntry => ({
+  slug,
+  solvedAt: clock++,
+  language: 'python3',
+  outcome: 'failed',
+  statusMsg,
+});
+
+test('struggles surfaces problems that took more than one go', () => {
+  const s = struggles([
+    failed('two-sum', 'Wrong Answer'),
+    failed('two-sum', 'Time Limit Exceeded'),
+    entry('two-sum', 'optimal', ['hash map']),
+    entry('add-two-numbers', 'optimal', ['linked list']),   // first try, not a struggle
+  ]);
+
+  assert.equal(s.length, 1);
+  assert.equal(s[0]!.slug, 'two-sum');
+  assert.equal(s[0]!.attempts, 3);
+  assert.equal(s[0]!.failures, 2);
+  assert.equal(s[0]!.solved, true);
+  assert.deepEqual(s[0]!.reasons, ['Time Limit Exceeded', 'Wrong Answer'], 'most recent first');
+});
+
+test('a problem still unsolved is reported as such', () => {
+  const s = struggles([failed('hard-one', 'Time Limit Exceeded'), failed('hard-one', 'Time Limit Exceeded')]);
+  assert.equal(s[0]!.solved, false);
+  assert.deepEqual(s[0]!.reasons, ['Time Limit Exceeded'], 'the same reason is not repeated');
+});
+
+test('failed attempts inherit the patterns of the eventual solve', () => {
+  // failures carry no analysis, so without retroactive attribution, struggling
+  // repeatedly with a pattern would be invisible and only successes would count
+  const stats = weakPatterns([
+    failed('two-sum', 'Time Limit Exceeded'),
+    failed('two-sum', 'Time Limit Exceeded'),
+    entry('two-sum', 'optimal', ['hash map']),
+  ]);
+
+  assert.equal(stats[0]!.pattern, 'hash map');
+  assert.equal(stats[0]!.total, 3, 'all three attempts counted');
+  assert.equal(stats[0]!.failed, 2);
+  assert.equal(Math.round(stats[0]!.rate * 100), 67);
+});
+
+test('a pattern you fail outranks one you merely solve clumsily', () => {
+  const stats = weakPatterns([
+    failed('a', 'Time Limit Exceeded'), entry('a', 'optimal', ['dp']),
+    failed('b', 'Wrong Answer'), entry('b', 'optimal', ['dp']),
+    entry('c', 'suboptimal', ['bfs']), entry('d', 'suboptimal', ['bfs']),
+    entry('e', 'suboptimal', ['bfs']), entry('f', 'suboptimal', ['bfs']),
+  ]);
+  assert.equal(stats[0]!.pattern, 'dp', 'failing beats being untidy');
+});
+
+test('failureReasons ranks what actually bites you', () => {
+  const r = failureReasons([
+    failed('a', 'Time Limit Exceeded'),
+    failed('b', 'Time Limit Exceeded'),
+    failed('c', 'Wrong Answer'),
+    entry('d', 'optimal', []),
+  ]);
+  assert.deepEqual(r, [
+    { reason: 'Time Limit Exceeded', count: 2 },
+    { reason: 'Wrong Answer', count: 1 },
+  ]);
+});
+
+test('summarise separates accepted from failed', () => {
+  const s = summarise([
+    entry('a', 'optimal', []),
+    failed('b', 'Wrong Answer'),
+    failed('c', 'Time Limit Exceeded'),
+  ]);
+  assert.equal(s.total, 3);
+  assert.equal(s.accepted, 1);
+  assert.equal(s.failed, 2);
 });

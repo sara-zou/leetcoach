@@ -92,7 +92,13 @@ export default defineContentScript({
         terminal,
       );
 
-      if (!terminal.accepted) return; // only accepted submissions get analysed
+      // Failures are still sent: the background records them without calling a
+      // model. Nothing is shown, since LeetCode already told you it failed.
+      if (!terminal.accepted) {
+        browser.runtime.sendMessage({ type: 'SUBMISSION_EVENT', payload: terminal })
+          .catch(() => {});
+        return;
+      }
 
       // show progress immediately — the model call takes seconds
       store.startAnalyzing(terminal.id, terminal.slug);
