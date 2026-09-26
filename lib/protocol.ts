@@ -19,6 +19,8 @@ export type WireMessage = { source: typeof CHANNEL; kind: Kind; data: unknown };
 /** A page could stuff megabytes here to bloat a prompt or a storage write. */
 export const MAX_CODE_CHARS = 100_000;
 export const MAX_SLUG_CHARS = 200;
+/** A failing test case can be enormous; it reaches a prompt, so cap it. */
+export const MAX_FAILURE_CHARS = 2_000;
 
 export function encode(kind: Kind, data: unknown): WireMessage {
   return { source: CHANNEL, kind, data };
@@ -31,6 +33,18 @@ export function decode(raw: unknown): { kind: Kind; data: unknown } | null {
   if (m.source !== CHANNEL) return null;
   if (typeof m.kind !== 'string' || !KINDS.includes(m.kind as Kind)) return null;
   return { kind: m.kind as Kind, data: m.data };
+}
+
+function parseFailure(v: unknown): TerminalEvent['failure'] {
+  if (!v || typeof v !== 'object') return undefined;
+  const f = v as Record<string, unknown>;
+  const out = {
+    lastTestcase: str(f.lastTestcase, MAX_FAILURE_CHARS),
+    expectedOutput: str(f.expectedOutput, MAX_FAILURE_CHARS),
+    actualOutput: str(f.actualOutput, MAX_FAILURE_CHARS),
+    errorText: str(f.errorText, MAX_FAILURE_CHARS),
+  };
+  return Object.values(out).some(Boolean) ? out : undefined;
 }
 
 const str = (v: unknown, max: number): string | undefined =>
@@ -72,5 +86,6 @@ export function parseTerminal(data: unknown): TerminalEvent | null {
     memoryPercentile: num(d.memoryPercentile),
     typedCode: str(d.typedCode, MAX_CODE_CHARS),
     elapsedMs: num(d.elapsedMs) ?? 0,
+    failure: parseFailure(d.failure),
   };
 }

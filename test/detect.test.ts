@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { SubmissionDetector, type TerminalEvent } from '../lib/detect.ts';
+import { SubmissionDetector, worthAnalysing, STATUS, type TerminalEvent } from '../lib/detect.ts';
 
 const SLUG = 'two-sum';
 const CODE = 'class Solution:\n    def twoSum(self, nums, target):\n        pass';
@@ -163,4 +163,67 @@ test('an undocumented judge state is treated as "keep waiting", not dropped', ()
   const done = terminals(d.observe(checkUrl('5001'), 'GET', undefined, judged(10)));
   assert.equal(done.length, 1, 'and the real verdict still fires afterwards');
   assert.equal(done[0]!.accepted, true);
+});
+
+// --- failures ---------------------------------------------------------------
+
+test('a rejected submission carries the judge output needed to diagnose it', () => {
+  const d = new SubmissionDetector();
+  d.observe(submitUrl(), 'POST', submitBody(), JSON.stringify({ submission_id: '7001' }));
+  const evs = d.observe(checkUrl('7001'), 'GET', undefined, JSON.stringify({
+    state: 'SUCCESS', status_code: 11, status_msg: 'Wrong Answer',
+    total_correct: 3, total_testcases: 57,
+    last_testcase: '[3,3]\n6', expected_output: '[0,1]', code_output: '[]',
+  }));
+
+  const t = terminals(evs)[0]!;
+  assert.equal(t.accepted, false);
+  assert.equal(t.failure?.lastTestcase, '[3,3]\n6');
+  assert.equal(t.failure?.expectedOutput, '[0,1]');
+  assert.equal(t.failure?.actualOutput, '[]');
+});
+
+test('an accepted submission carries no failure detail', () => {
+  const d = new SubmissionDetector();
+  d.observe(submitUrl(), 'POST', submitBody(), JSON.stringify({ submission_id: '7002' }));
+  const t = terminals(d.observe(checkUrl('7002'), 'GET', undefined, judged(10)))[0]!;
+  assert.equal(t.failure, undefined);
+});
+
+test('a TLE has no failing case, and that is fine', () => {
+  // TLE reports no input or expected output — the diagnosis comes from the code
+  const d = new SubmissionDetector();
+  d.observe(submitUrl(), 'POST', submitBody(), JSON.stringify({ submission_id: '7003' }));
+  const t = terminals(d.observe(checkUrl('7003'), 'GET', undefined, JSON.stringify({
+    state: 'SUCCESS', status_code: 14, status_msg: 'Time Limit Exceeded',
+    total_correct: 40, total_testcases: 57,
+  })))[0]!;
+
+  assert.equal(t.accepted, false);
+  assert.equal(t.statusMsg, 'Time Limit Exceeded');
+  assert.equal(t.failure, undefined, 'no detail rather than empty strings');
+  assert.equal(t.totalCorrect, 40);
+});
+
+test('alternative field spellings are picked up', () => {
+  // the /v2/ endpoint was never captured for a Wrong Answer, so several
+  // plausible key names are read
+  const d = new SubmissionDetector();
+  d.observe(submitUrl(), 'POST', submitBody(), JSON.stringify({ submission_id: '7004' }));
+  const t = terminals(d.observe(checkUrl('7004'), 'GET', undefined, JSON.stringify({
+    state: 'SUCCESS', status_code: 11, status_msg: 'Wrong Answer',
+    input: '[1,2]', expected_code_answer: ['[0,1]'], code_answer: ['[1,0]'],
+  })))[0]!;
+
+  assert.equal(t.failure?.lastTestcase, '[1,2]');
+  assert.equal(t.failure?.expectedOutput, '[0,1]', 'arrays are joined');
+  assert.equal(t.failure?.actualOutput, '[1,0]');
+});
+
+test('compile errors are not worth a model call; everything else is', () => {
+  assert.equal(worthAnalysing(STATUS.COMPILE_ERROR), false);
+  for (const code of [STATUS.WRONG_ANSWER, STATUS.TIME_LIMIT_EXCEEDED,
+                      STATUS.MEMORY_LIMIT_EXCEEDED, STATUS.RUNTIME_ERROR]) {
+    assert.equal(worthAnalysing(code), true);
+  }
 });

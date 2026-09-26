@@ -51,9 +51,11 @@ function Body({ state, onAsk }: { state: PanelState; onAsk: AskFn }) {
       <div className={`lc-verdict ${a.verdict}`}>{verdictLabel(a.verdict)}</div>
 
       <div className="lc-cx">
-        <div><span>yours</span><b>{a.user.time}</b><i>{a.user.space} space</i></div>
+        <div><span>{a.verdict === 'failed' ? 'submitted' : 'yours'}</span>
+          <b>{a.user.time}</b><i>{a.user.space} space</i></div>
         <div className="arrow">→</div>
-        <div><span>optimal</span><b>{a.optimal.time}</b><i>{a.optimal.space} space</i></div>
+        <div><span>{a.verdict === 'failed' ? 'needed' : 'optimal'}</span>
+          <b>{a.optimal.time}</b><i>{a.optimal.space} space</i></div>
       </div>
 
       {a.user.reasoning && <p className="lc-reason">{a.user.reasoning}</p>}
@@ -171,4 +173,5 @@ function Failed({ state }: { state: Extract<PanelState, { status: 'error' }> }) 
 const verdictLabel = (v: string) =>
   v === 'optimal' ? 'optimal'
   : v === 'suboptimal' ? 'right idea, wasteful'
-  : 'missed a better approach';
+  : v === 'missed' ? 'missed a better approach'
+  : 'rejected';

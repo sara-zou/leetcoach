@@ -16,10 +16,14 @@ export type Severity = 'major' | 'minor' | 'nit';
  * different reactions.
  *
  *   optimal     matches the best known complexity
- *   suboptimal  same complexity class, but wasteful
- *   missed      a worse complexity class
+ *   suboptimal  accepted; same complexity class, but wasteful
+ *   missed      accepted; a worse complexity class
+ *   failed      the judge rejected it
+ *
+ * One scale rather than two, so severity ordering is built in and the panel
+ * renders a single badge.
  */
-export type Verdict = 'optimal' | 'suboptimal' | 'missed';
+export type Verdict = 'optimal' | 'suboptimal' | 'missed' | 'failed';
 
 export type Finding = {
   severity: Severity;
@@ -37,12 +41,12 @@ export type Analysis = {
   canonical?: { language: string; code: string; walkthrough: string };
 };
 
-const VERDICTS: Verdict[] = ['optimal', 'suboptimal', 'missed'];
+const VERDICTS: Verdict[] = ['optimal', 'suboptimal', 'missed', 'failed'];
 const SEVERITIES: Severity[] = ['major', 'minor', 'nit'];
 
 /** The schema we show the model. Kept next to the parser so they can't drift. */
 export const SCHEMA_DESCRIPTION = `{
-  "verdict": "optimal" | "suboptimal" | "missed",
+  "verdict": "optimal" | "suboptimal" | "missed" | "failed",
   "user":    { "time": "O(...)", "space": "O(...)", "reasoning": "why, citing the submitted code" },
   "optimal": { "time": "O(...)", "space": "O(...)" },
   "findings": [
@@ -126,6 +130,7 @@ export function sameComplexity(a: string, b: string): boolean {
  * Skips unknown complexities ('?'), which is what migrated v1 entries carry.
  */
 function reconcileVerdict(verdict: Verdict, userTime: string, optimalTime: string): Verdict {
+  if (verdict === 'failed') return verdict; // the judge's word, not a judgement call
   if (userTime.includes('?') || optimalTime.includes('?')) return verdict;
   const matches = sameComplexity(userTime, optimalTime);
   if (!matches && verdict === 'suboptimal') return 'missed';

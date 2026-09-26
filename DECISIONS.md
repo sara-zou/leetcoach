@@ -126,20 +126,36 @@ the obvious next split, since a solution can match on time and lose on space.
 
 ---
 
-## 9. Failed submissions are recorded, never analysed
+## 9. Failed submissions are recorded *and* analysed
 
-**Decision.** Store every attempt with an `outcome` of `accepted` or `failed`.
-Failures get a history entry and no model call.
+**Decision.** Store every attempt with an `outcome` of `accepted` or `failed`,
+and analyse the failures too — except compile errors.
 
 **Why record them.** They are the most informative signal available and they
 were being thrown away. An accepted-first-try solve and a fourth-attempt solve
 looked identical, and "TLE'd three monotonic-stack problems this month" is a
 sharper weakness signal than any verdict on a solution that passed.
 
-**Why not analyse them.** The value proposition is reviewing work that already
-passed. Critiquing failures is a different prompt, and it would bill on every
-attempt during exactly the period when someone is submitting repeatedly.
-Recording is free.
+**Why analyse them.** A Time Limit failure *is* a complexity problem, which is
+the thing this tool is best at — arguably the highest-value moment it can act
+on, since the feedback arrives while you are still stuck. A Wrong Answer is an
+edge case worth finding. `failed` becomes a fourth level on the same verdict
+scale rather than a separate concept, so severity ordering is built in and the
+panel renders one badge.
+
+**Except compile errors.** The compiler already said what was wrong, in more
+detail and for free. `worthAnalysing()` encodes that, and both the content
+script and the background consult it so a compile error never shows a spinner.
+
+**What it costs.** Someone iterating on a hard problem might submit six times
+and pay for six analyses instead of one. At ~$0.0003 per call that is
+immaterial; on Opus it is ~12 cents for that problem. Another reason the spend
+cap (decision 2) should exist before switching provider.
+
+**A caveat.** The failing test case is read from fields that were never captured
+on the `/v2/` endpoint for a Wrong Answer — the key names are inferred from
+older clients. Several spellings are tried, and a missing case degrades to
+"reason from the code alone", which is still enough for a TLE.
 
 **The retroactive trick.** A failure carries no analysis and therefore no
 patterns. But once that problem is eventually solved, the solve names the

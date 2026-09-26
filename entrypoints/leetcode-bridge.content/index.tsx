@@ -1,5 +1,6 @@
 import ReactDOM from 'react-dom/client';
 import { decode, parseTerminal } from '../../lib/protocol';
+import { worthAnalysing } from '../../lib/detect';
 import { PanelStore, type FollowupKind } from '../../lib/panel-store';
 import { Panel } from '../../components/Panel';
 import './style.css';
@@ -92,9 +93,9 @@ export default defineContentScript({
         terminal,
       );
 
-      // Failures are still sent: the background records them without calling a
-      // model. Nothing is shown, since LeetCode already told you it failed.
-      if (!terminal.accepted) {
+      // A compile error is recorded but not analysed, so there is nothing to
+      // show — the compiler already said it, better than we would.
+      if (!terminal.accepted && !worthAnalysing(terminal.statusCode)) {
         browser.runtime.sendMessage({ type: 'SUBMISSION_EVENT', payload: terminal })
           .catch(() => {});
         return;

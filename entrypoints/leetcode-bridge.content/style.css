@@ -91,6 +91,8 @@ header {
 .lc-verdict.suboptimal { background: #fef9c3; color: #854d0e; }
 /* wrong complexity class — the approach itself was wrong */
 .lc-verdict.missed { background: #fee2e2; color: #b91c1c; }
+/* the judge rejected it — the most severe level */
+.lc-verdict.failed { background: #7f1d1d; color: #fff; }
 .lc-verdict.error { background: #f4f4f5; color: #52525b; }
 
 .lc-cx {

@@ -1,4 +1,5 @@
 import { parseTerminal } from '../lib/protocol';
+import { worthAnalysing } from '../lib/detect';
 import { analyze, askFollowup, type ModelConfig } from '../lib/model';
 import {
   providerItem, apiKeysItem, modelsItem,
@@ -92,17 +93,16 @@ async function handleSubmission(payload: unknown) {
   // revalidate at the privilege boundary, even though the bridge already did
   const t = parseTerminal(payload);
   if (!t) return { ok: false, kind: 'invalid', message: 'Malformed submission event.' };
-  // A failed attempt is recorded but never analysed: no model call, no cost.
-  // "TLE'd this three times before passing" is the most informative thing we
-  // see, and discarding it made an accepted-first-try solve and a fourth-try
-  // solve look identical.
-  if (!t.accepted) {
-    await recordAttempt({
+  // A compile error is recorded but not analysed — the compiler already said
+  // what was wrong, in more detail and for free.
+  if (!t.accepted && !worthAnalysing(t.statusCode)) {
+    const recorded = await recordAttempt({
       id: t.id, slug: t.slug, solvedAt: Date.now(), language: t.lang ?? 'unknown',
       outcome: 'failed', statusMsg: t.statusMsg,
     });
-    return { ok: false, kind: 'skipped', message: `Not accepted (${t.statusMsg}).`, recorded: true };
+    return { ok: false, kind: 'skipped', message: `${t.statusMsg} — nothing to add.`, recorded };
   }
+
   if (!t.typedCode) return { ok: false, kind: 'skipped', message: 'No source code captured.' };
 
   const cfg = await loadConfig();
@@ -121,6 +121,14 @@ async function handleSubmission(payload: unknown) {
     runtimePercentile: t.runtimePercentile,
     memoryPercentile: t.memoryPercentile,
     canonical: canonical ?? undefined,
+    // Switches the request from "how could this be better" to "why did this
+    // fail". Same output schema, so one parser and one renderer.
+    failure: t.accepted ? undefined : {
+      statusMsg: t.statusMsg ?? 'Rejected',
+      totalCorrect: t.totalCorrect,
+      totalTestcases: t.totalTestcases,
+      ...t.failure,
+    },
   });
 
   console.log(
@@ -135,7 +143,7 @@ async function handleSubmission(payload: unknown) {
   // miss, nothing is cached and every future analysis of this problem pays full
   // price — worth surfacing rather than claiming success.
   let stored = false;
-  if (!canonical && result.analysis.canonical?.code) {
+  if (t.accepted && !canonical && result.analysis.canonical?.code) {
     await setCanonical(t.slug, lang, result.analysis.canonical.code);
     stored = true;
   }
@@ -148,7 +156,8 @@ async function handleSubmission(payload: unknown) {
     slug: t.slug,
     solvedAt: Date.now(),
     language: lang,
-    outcome: 'accepted',
+    outcome: t.accepted ? 'accepted' : 'failed',
+    statusMsg: t.accepted ? undefined : t.statusMsg,
     analysis: forStorage(result.analysis),
     runtimePercentile: t.runtimePercentile,
   });

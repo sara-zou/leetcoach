@@ -55,6 +55,8 @@ export function weakPatterns(entries: HistoryEntry[], minSamples = 3): PatternSt
     for (const pattern of new Set(patterns)) { // don't double-count within one entry
       const c = counts.get(pattern) ?? { total: 0, failed: 0, missed: 0, clumsy: 0 };
       c.total += 1;
+      // `outcome` is the judge's fact and wins; the verdict only grades what
+      // the judge accepted.
       if (e.outcome === 'failed') c.failed += 1;
       else if (e.analysis?.verdict === 'missed') c.missed += 1;
       else if (e.analysis?.verdict === 'suboptimal') c.clumsy += 1;

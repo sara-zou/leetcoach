@@ -55,12 +55,39 @@ export const JUDGE_STATE = {
 // have dropped this submission entirely.
 
 /** What we remember about a POST while waiting for its verdict. */
+/**
+ * Which rejections are worth a model call.
+ *
+ * A compile error is excluded: the compiler already said what is wrong, in more
+ * detail and for free. Everything else benefits — a Time or Memory Limit
+ * failure is a complexity problem, which is exactly what this tool is good at,
+ * and a Wrong Answer is an edge case worth finding.
+ */
+export function worthAnalysing(statusCode: number): boolean {
+  return statusCode !== STATUS.COMPILE_ERROR;
+}
+
 export type Origin = {
   kind: 'submit' | 'interpret';
   slug: string;
   lang?: string;
   typedCode?: string;
   at: number;
+};
+
+/**
+ * Why a submission failed, when it did.
+ *
+ * Field names are read defensively: the /v2/ check endpoint was captured for an
+ * accepted submission and a compile error, but not for a Wrong Answer, so the
+ * exact keys there are inferred from older clients. Missing fields degrade to
+ * "analyse the code without the failing case", which is still useful for a TLE.
+ */
+export type FailureDetail = {
+  lastTestcase?: string;
+  expectedOutput?: string;
+  actualOutput?: string;
+  errorText?: string;
 };
 
 export type TerminalEvent = {
@@ -78,6 +105,8 @@ export type TerminalEvent = {
   memoryPercentile?: number;
   typedCode?: string;
   elapsedMs: number;
+  /** Present only when the judge rejected it. */
+  failure?: FailureDetail;
 };
 
 export type DetectEvent =
@@ -217,6 +246,7 @@ export class SubmissionDetector {
           // carried from the POST — the verdict response never contains it
           typedCode: origin.typedCode,
           elapsedMs: this.now() - origin.at,
+          failure: body.status_code === STATUS.ACCEPTED ? undefined : failureDetail(body),
         },
       });
       return events;
@@ -232,6 +262,34 @@ export class SubmissionDetector {
 }
 
 /** LeetCode sometimes returns HTML (rate limits, auth redirects). Never throw. */
+/**
+ * Returns undefined rather than an object of undefined fields, so "no detail"
+ * is distinguishable from "detail I couldn't read". A TLE reports no failing
+ * case at all, which is normal.
+ */
+function failureDetail(body: any): FailureDetail | undefined {
+  const detail: FailureDetail = {
+    lastTestcase: pick(body.last_testcase, body.input),
+    expectedOutput: pick(body.expected_output, body.expected_code_answer),
+    actualOutput: pick(body.code_output, body.code_answer),
+    errorText: pick(body.full_runtime_error, body.runtime_error,
+                    body.full_compile_error, body.compile_error),
+  };
+  return Object.values(detail).some(Boolean) ? detail : undefined;
+}
+
+/** First value that is a non-empty string; arrays are joined. */
+function pick(...vals: unknown[]): string | undefined {
+  for (const v of vals) {
+    if (typeof v === 'string' && v.trim()) return v;
+    if (Array.isArray(v) && v.length) {
+      const joined = v.filter((x) => typeof x === 'string').join('\n').trim();
+      if (joined) return joined;
+    }
+  }
+  return undefined;
+}
+
 function safeParse(text: string | undefined): any {
   if (!text) return {};
   try { return JSON.parse(text); } catch { return {}; }
