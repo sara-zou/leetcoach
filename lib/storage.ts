@@ -50,8 +50,19 @@ export async function setCanonical(slug: string, lang: string, code: string): Pr
   await storage.setItem(canonicalKey(slug, lang), code);
 }
 
-export async function appendHistory(entry: HistoryEntry): Promise<void> {
-  const history = await historyItem.getValue();
-  history.push(entry);
-  await historyItem.setValue(history.slice(-500)); // bounded
+/**
+ * Serialises writes. appendHistory is read-modify-write, so two submissions
+ * finishing close together would both read the same array and the second write
+ * would drop the first entry. There is only ever one background worker, so
+ * chaining promises is a sufficient lock.
+ */
+let historyQueue: Promise<unknown> = Promise.resolve();
+
+export function appendHistory(entry: HistoryEntry): Promise<void> {
+  historyQueue = historyQueue.then(async () => {
+    const history = await historyItem.getValue();
+    history.push(entry);
+    await historyItem.setValue(history.slice(-500)); // bounded
+  }).catch((e) => { console.error('[leetcoach] history write failed', e); });
+  return historyQueue as Promise<void>;
 }

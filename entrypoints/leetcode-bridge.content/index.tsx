@@ -70,11 +70,24 @@ export default defineContentScript({
       // show progress immediately — the model call takes seconds
       store.startAnalyzing(terminal.id, terminal.slug);
 
-      const result = await browser.runtime.sendMessage({
-        type: 'SUBMISSION_EVENT',
-        payload: terminal,
-      });
-      store.resolve(terminal.id, result);
+      // sendMessage rejects when the background worker is restarting or the
+      // extension context has been invalidated — which happens on every hot
+      // reload and after every extension update. Unguarded, the rejection is
+      // swallowed by this async listener and the panel spins forever.
+      try {
+        const result = await browser.runtime.sendMessage({
+          type: 'SUBMISSION_EVENT',
+          payload: terminal,
+        });
+        store.resolve(terminal.id, result);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        store.resolve(terminal.id, {
+          ok: false,
+          kind: /context invalidated/i.test(message) ? 'reloaded' : 'disconnected',
+          message,
+        });
+      }
     });
 
     // ---- independent DOM cross-check ----

@@ -46,10 +46,14 @@ export class PanelStore {
     if (this.pending !== submissionId) return false;
     this.pending = null;
 
-    if (result?.ok) {
+    const slug = this.state.status === 'analyzing' ? this.state.slug : '';
+
+    // `ok: true` without an analysis would leave Panel dereferencing undefined.
+    // It shouldn't happen, but this crosses a message boundary, so don't assume.
+    if (result?.ok && result.analysis) {
       this.set({
         status: 'done',
-        slug: result.analysis ? (this.state as any).slug ?? '' : '',
+        slug,
         analysis: result.analysis,
         ms: result.ms ?? 0,
         cacheHit: !!result.cacheHit,
@@ -57,9 +61,9 @@ export class PanelStore {
     } else {
       this.set({
         status: 'error',
-        slug: (this.state as any).slug ?? '',
-        kind: result?.kind ?? 'unknown',
-        message: result?.message ?? 'Something went wrong.',
+        slug,
+        kind: result?.ok ? 'empty' : result?.kind ?? 'unknown',
+        message: result?.message ?? 'The analysis came back empty.',
       });
     }
     return true;

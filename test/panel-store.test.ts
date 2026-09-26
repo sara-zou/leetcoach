@@ -75,3 +75,34 @@ test('auto-open follows the whole transition, not just the opening half', () => 
   assert.equal(shouldAutoOpen(done('optimal')), false, 'and must close again on a clean solve');
   assert.equal(shouldAutoOpen(done('suboptimal')), true, 'but stays open when there is something to say');
 });
+
+test('a transport failure resolves the panel instead of leaving it spinning', () => {
+  // sendMessage rejects whenever the worker is restarting or the extension
+  // reloaded. Unhandled, the panel would sit on the spinner forever.
+  const s = new PanelStore();
+  s.startAnalyzing('1', 'two-sum');
+  s.resolve('1', { ok: false, kind: 'reloaded', message: 'Extension context invalidated.' });
+  assert.equal(s.get().status, 'error');
+  assert.equal((s.get() as any).kind, 'reloaded');
+});
+
+test('ok:true without an analysis becomes an error, not a crash', () => {
+  const s = new PanelStore();
+  s.startAnalyzing('1', 'two-sum');
+  s.resolve('1', { ok: true, ms: 10 });        // malformed reply
+  const st = s.get();
+  assert.equal(st.status, 'error', 'must not report done with no analysis');
+  assert.equal((st as any).kind, 'empty');
+});
+
+test('the slug survives into both done and error states', () => {
+  for (const reply of [
+    { ok: true, analysis: analysis('suboptimal'), ms: 1 },
+    { ok: false, kind: 'auth', message: 'bad key' },
+  ]) {
+    const s = new PanelStore();
+    s.startAnalyzing('1', 'diameter-of-binary-tree');
+    s.resolve('1', reply);
+    assert.equal((s.get() as any).slug, 'diameter-of-binary-tree');
+  }
+});

@@ -89,7 +89,10 @@ async function handleSubmission(payload: unknown) {
     runtimePercentile: t.runtimePercentile,
   });
 
-  return { ...result, cacheHit: !!canonical, cached: stored };
+  // `raw` is the full model response text. The panel never reads it, and it
+  // echoes the user's code back across a message boundary. Drop it here.
+  const { raw: _raw, ...forPanel } = result;
+  return { ...forPanel, cacheHit: !!canonical, cached: stored };
 }
 
 /** Lets the popup exercise the whole pipeline without solving a problem. */

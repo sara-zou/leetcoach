@@ -116,6 +116,9 @@ function Failed({ state }: { state: Extract<PanelState, { status: 'error' }> }) 
     : state.kind === 'auth' ? 'The key was rejected. Check it in the popup.'
     : state.kind === 'connection' ? 'Could not reach the provider.'
     : state.kind === 'unparseable' ? 'The model returned something unusable. Try again or switch models.'
+    : state.kind === 'reloaded' ? 'The extension reloaded mid-analysis. Submit again.'
+    : state.kind === 'disconnected' ? 'Lost contact with the extension. Submit again.'
+    : state.kind === 'empty' ? 'The analysis came back empty. Try again.'
     : null;
   return (
     <div className="lc-body">
