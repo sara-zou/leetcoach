@@ -69,6 +69,33 @@ sharing the extension with anyone else. Whichever comes first.
 
 ---
 
+## 6. One history store serves both review and pattern stats
+
+**Decision.** `local:history` holds the full analysis per entry. Weak-pattern
+stats are a projection over the same array (`lib/history.ts`), not a second
+store.
+
+**Why.** Pattern stats need `analysis.patterns` and `analysis.verdict`, which is
+a strict subset of what reviewing a past analysis needs. A separate aggregate
+would mean a second write path, a second thing to keep in sync, and a second
+thing to migrate.
+
+**Why the submitted code is not stored.** Findings already carry the relevant
+lines as `snippet`, which is what makes an old analysis worth re-reading.
+Keeping whole submissions would add roughly 1 KB per entry to enable follow-up
+questions about week-old code — a use nobody has. The code stays in
+`session:context:{id}`, so follow-ups work while the panel is still relevant and
+stop working after a browser restart. Review keeps working forever.
+
+**What it costs.** An analysis minus `canonical` is ~1.2 KB, so the 500-entry
+cap is ~600 KB. `canonical` is excluded because it is already cached by problem
+and language; storing it per entry would duplicate it.
+
+**Revisit if:** people actually want to ask new questions about old submissions.
+Then the code moves to `local:` at about +1 KB per entry.
+
+---
+
 ## 3. Detection patches the page's network, rather than watching the DOM
 
 **Decision.** A MAIN-world content script wraps `window.fetch` and

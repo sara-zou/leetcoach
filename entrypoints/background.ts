@@ -3,7 +3,7 @@ import { analyze, askFollowup, type ModelConfig } from '../lib/model';
 import {
   providerItem, apiKeysItem, modelsItem,
   getCanonical, setCanonical, appendHistory,
-  setContext, getContext, setHistoryTakeaway,
+  setContext, getContext, setHistoryTakeaway, forStorage,
 } from '../lib/storage';
 import { defaultModel } from '../lib/providers';
 import type { FollowupKind } from '../lib/prompt';
@@ -137,9 +137,8 @@ async function handleSubmission(payload: unknown) {
     id: t.id,
     slug: t.slug,
     solvedAt: Date.now(),
-    verdict: result.analysis.verdict,
-    patterns: result.analysis.patterns,
     language: lang,
+    analysis: forStorage(result.analysis),
     runtimePercentile: t.runtimePercentile,
   });
 

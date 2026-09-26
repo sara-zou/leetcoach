@@ -24,19 +24,33 @@ export const modelsItem = storage.defineItem<Record<string, string>>('local:mode
   fallback: {},
 });
 
+/**
+ * One analysed submission. Reviewing a past analysis and computing
+ * weak-pattern stats read the same records — the stats are a projection over
+ * `analysis.patterns` and `analysis.verdict`, not a separate store.
+ *
+ * The submitted code is deliberately NOT here. Findings already carry the
+ * relevant lines as `snippet`, which is what makes a past analysis worth
+ * re-reading; keeping whole submissions would cost ~1 KB each for little more.
+ */
 export type HistoryEntry = {
-  /** Submission id. Optional so older entries stay readable without a migration. */
+  /** Submission id, used to attach a takeaway later. */
   id?: string;
   slug: string;
   solvedAt: number;
-  verdict: Analysis['verdict'];
-  patterns: string[];
   language: string;
+  /** The full critique, minus `canonical` — that is cached separately by
+   *  problem and language, so storing it per entry would duplicate it. */
+  analysis: StoredAnalysis;
   runtimePercentile?: number;
   /** Filled in later, if the user asks for it. The most re-readable thing the
    *  extension produces, and what would make spaced repetition worth building. */
   takeaway?: string;
 };
+
+export type StoredAnalysis = Omit<Analysis, 'canonical'>;
+
+export const forStorage = ({ canonical: _drop, ...rest }: Analysis): StoredAnalysis => rest;
 
 /**
  * Serialises writes. appendHistory is read-modify-write, so two submissions
@@ -48,7 +62,28 @@ let historyQueue: Promise<unknown> = Promise.resolve();
 
 export const historyItem = storage.defineItem<HistoryEntry[]>('local:history', {
   fallback: [],
-  version: 1,
+  version: 2,
+  migrations: {
+    // v1 stored only `verdict` and `patterns` at the top level, so a past
+    // analysis could not be reviewed — the findings were never persisted.
+    // Old entries keep what they had; the rest is genuinely gone.
+    2: (entries: any[]): HistoryEntry[] =>
+      (entries ?? []).map((e) => ({
+        id: e.id,
+        slug: e.slug,
+        solvedAt: e.solvedAt,
+        language: e.language,
+        runtimePercentile: e.runtimePercentile,
+        takeaway: e.takeaway,
+        analysis: {
+          verdict: e.verdict ?? 'acceptable',
+          patterns: e.patterns ?? [],
+          user: { time: '?', space: '?', reasoning: '' },
+          optimal: { time: '?', space: '?' },
+          findings: [],
+        },
+      })),
+  },
 });
 
 /**
