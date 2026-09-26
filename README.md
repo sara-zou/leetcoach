@@ -33,6 +33,8 @@ npm run dev                               # opens Chrome with the extension load
 Verified end to end in a browser on 2026-09-25: detection, validation, model
 call, caching and the panel.
 
+Design decisions and what would make each worth revisiting: [DECISIONS.md](DECISIONS.md).
+
 ## Planned
 
 **Ask the coach.** Two buttons on the panel: explain *why* the time and space
