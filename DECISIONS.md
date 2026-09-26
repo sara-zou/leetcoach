@@ -96,6 +96,60 @@ Then the code moves to `local:` at about +1 KB per entry.
 
 ---
 
+## 7. Verdicts are graded by complexity class
+
+`optimal` / `suboptimal` / `missed` — see `lib/analysis.ts`.
+
+**Decision.** Replace the old `optimal` / `acceptable` / `suboptimal` scale,
+whose middle boundary was whatever the model felt like, with one defined by
+complexity class:
+
+- `optimal` — matches the best known time complexity
+- `suboptimal` — the same complexity class, but wasteful
+- `missed` — a worse complexity class; the approach itself was wrong
+
+**Why.** "You took a clumsy route to the right complexity" and "you did not find
+the algorithm" deserve different reactions, and conflating them made the
+weak-pattern stats less useful: three clumsy solves ranked the same as three
+missed ones.
+
+**The useful side effect.** The boundary is now checkable rather than a matter
+of taste. `parseAnalysis` reconciles the label against the complexities the
+model itself reported — a stated `suboptimal` with O(n^2) against O(n) is
+corrected to `missed`, and vice versa. `sameComplexity` handles the usual
+spelling variants (`O(n^2)` / `O(n²)` / `O(n * n)`). It is a nudge, not a
+proof: it will not work out that O(n log n) is worse than O(n), only that they
+differ.
+
+**Revisit if:** the three levels prove too coarse. A space-complexity axis is
+the obvious next split, since a solution can match on time and lose on space.
+
+---
+
+## 8. `unlimitedStorage`, rather than evicting
+
+**Decision.** Take the permission instead of adding LRU eviction to the
+canonical cache.
+
+**Why.** `chrome.storage.local` caps around 10 MB. The cache is roughly 1.5 KB
+per problem per language, so the cliff is thousands of problems away — but it is
+a cliff, not a slope: once full, every submission fails on the write. Eviction
+would be more code, another thing to tune, and it would silently throw away work
+that cost money to produce.
+
+**What it costs.** One more line on the install permission screen: "Store an
+unlimited amount of data on your device".
+
+**Also changed.** Storage failures used to be inconsistent — `setCanonical`
+threw and surfaced as an error, while `appendHistory` caught and logged, so a
+quota failure showed an analysis on screen and never recorded it with nothing to
+indicate the loss. Both now surface, and the response carries `recorded: false`.
+
+**Revisit if:** the permission becomes an obstacle to distributing this. Then
+LRU eviction on `canonical:*`, keeping the most recently used.
+
+---
+
 ## 3. Detection patches the page's network, rather than watching the DOM
 
 **Decision.** A MAIN-world content script wraps `window.fetch` and

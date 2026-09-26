@@ -87,8 +87,10 @@ header {
   letter-spacing: 0.05em;
 }
 .lc-verdict.optimal { background: #dcfce7; color: #15803d; }
-.lc-verdict.acceptable { background: #fef9c3; color: #854d0e; }
-.lc-verdict.suboptimal { background: #fee2e2; color: #b91c1c; }
+/* right complexity class, clumsy route — a nudge, not an alarm */
+.lc-verdict.suboptimal { background: #fef9c3; color: #854d0e; }
+/* wrong complexity class — the approach itself was wrong */
+.lc-verdict.missed { background: #fee2e2; color: #b91c1c; }
 .lc-verdict.error { background: #f4f4f5; color: #52525b; }
 
 .lc-cx {

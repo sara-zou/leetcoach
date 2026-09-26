@@ -6,7 +6,7 @@ import type { HistoryEntry } from '../lib/storage.ts';
 let clock = 1_000;
 const entry = (
   slug: string,
-  verdict: 'optimal' | 'acceptable' | 'suboptimal',
+  verdict: 'optimal' | 'suboptimal' | 'missed',
   patterns: string[],
   extra: Partial<HistoryEntry> = {},
 ): HistoryEntry => ({
@@ -24,12 +24,12 @@ const entry = (
 
 test('weak patterns rank by how often you miss them', () => {
   const stats = weakPatterns([
-    entry('a', 'suboptimal', ['dp']),
-    entry('b', 'suboptimal', ['dp']),
-    entry('c', 'suboptimal', ['dp']),
+    entry('a', 'missed', ['dp']),
+    entry('b', 'missed', ['dp']),
+    entry('c', 'missed', ['dp']),
     entry('d', 'optimal', ['two pointers']),
     entry('e', 'optimal', ['two pointers']),
-    entry('f', 'suboptimal', ['two pointers']),
+    entry('f', 'missed', ['two pointers']),
   ]);
 
   assert.equal(stats[0]!.pattern, 'dp', 'worst first');
@@ -40,25 +40,35 @@ test('weak patterns rank by how often you miss them', () => {
 
 test('a pattern seen once is not called a weakness', () => {
   // with one sample every rate is 0% or 100% and the ranking is noise
-  const stats = weakPatterns([entry('a', 'suboptimal', ['monotonic stack'])]);
+  const stats = weakPatterns([entry('a', 'missed', ['monotonic stack'])]);
   assert.equal(stats.length, 0);
-  assert.equal(weakPatterns([entry('a', 'suboptimal', ['x'])], 1).length, 1, 'threshold is tunable');
+  assert.equal(weakPatterns([entry('a', 'missed', ['x'])], 1).length, 1, 'threshold is tunable');
 });
 
-test('acceptable counts as missed — only optimal is a clean solve', () => {
+test('missed and suboptimal are counted separately', () => {
   const stats = weakPatterns([
-    entry('a', 'acceptable', ['greedy']),
-    entry('b', 'acceptable', ['greedy']),
+    entry('a', 'missed', ['greedy']),
+    entry('b', 'suboptimal', ['greedy']),
     entry('c', 'optimal', ['greedy']),
   ]);
-  assert.equal(stats[0]!.missed, 2);
+  assert.equal(stats[0]!.missed, 1, 'wrong complexity class');
+  assert.equal(stats[0]!.clumsy, 1, 'right class, clumsy route');
+  assert.equal(stats[0]!.total, 3);
+});
+
+test('ranking puts a missed algorithm above a merely clumsy one', () => {
+  const stats = weakPatterns([
+    entry('a', 'missed', ['dp']), entry('b', 'missed', ['dp']), entry('c', 'optimal', ['dp']),
+    entry('d', 'suboptimal', ['bfs']), entry('e', 'suboptimal', ['bfs']), entry('f', 'suboptimal', ['bfs']),
+  ]);
+  assert.equal(stats[0]!.pattern, 'dp', 'missing the algorithm outranks 100% clumsiness');
 });
 
 test('a pattern repeated inside one entry counts once', () => {
   const stats = weakPatterns([
-    entry('a', 'suboptimal', ['dp', 'dp', 'dp']),
-    entry('b', 'suboptimal', ['dp']),
-    entry('c', 'suboptimal', ['dp']),
+    entry('a', 'missed', ['dp', 'dp', 'dp']),
+    entry('b', 'missed', ['dp']),
+    entry('c', 'missed', ['dp']),
   ]);
   assert.equal(stats[0]!.total, 3, 'three entries, not five mentions');
 });
@@ -74,21 +84,21 @@ test('recent is newest first and does not mutate the input', () => {
 test('summarise counts verdicts, languages and takeaways', () => {
   const s = summarise([
     entry('a', 'optimal', []),
-    entry('b', 'suboptimal', [], { takeaway: 'record as you go' }),
-    entry('c', 'acceptable', [], { language: 'java' }),
+    entry('b', 'missed', [], { takeaway: 'record as you go' }),
+    entry('c', 'missed', [], { language: 'java' }),
   ]);
   assert.equal(s.total, 3);
   assert.equal(s.optimal, 1);
-  assert.equal(s.suboptimal, 1);
+  assert.equal(s.missed, 2);
   assert.equal(s.withTakeaway, 1);
   assert.deepEqual(s.languages, [{ language: 'python3', count: 2 }, { language: 'java', count: 1 }]);
 });
 
 test('takeaways returns only entries that have one, newest first', () => {
   const got = takeaways([
-    entry('a', 'suboptimal', [], { takeaway: 'first' }),
+    entry('a', 'missed', [], { takeaway: 'first' }),
     entry('b', 'optimal', []),
-    entry('c', 'suboptimal', [], { takeaway: 'second' }),
+    entry('c', 'missed', [], { takeaway: 'second' }),
   ]);
   assert.deepEqual(got.map((e) => e.takeaway), ['second', 'first']);
 });

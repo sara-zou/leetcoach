@@ -101,8 +101,8 @@ code {
 
 .verdict { align-self: flex-start; padding: 2px 10px; border-radius: 99px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
 .verdict.optimal { background: #dcfce7; color: #15803d; }
-.verdict.acceptable { background: #fef9c3; color: #854d0e; }
-.verdict.suboptimal { background: #fee2e2; color: #b91c1c; }
+.verdict.suboptimal { background: #fef9c3; color: #854d0e; }
+.verdict.missed { background: #fee2e2; color: #b91c1c; }
 
 .cx { display: flex; gap: 14px; font-size: 12px; color: #555; }
 .cx b { color: #111; font-variant-numeric: tabular-nums; }

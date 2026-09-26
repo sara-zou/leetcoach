@@ -169,4 +169,6 @@ function Failed({ state }: { state: Extract<PanelState, { status: 'error' }> }) 
 }
 
 const verdictLabel = (v: string) =>
-  v === 'optimal' ? 'optimal' : v === 'acceptable' ? 'could be better' : 'suboptimal';
+  v === 'optimal' ? 'optimal'
+  : v === 'suboptimal' ? 'right idea, wasteful'
+  : 'missed a better approach';

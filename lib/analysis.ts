@@ -9,7 +9,17 @@
  */
 
 export type Severity = 'major' | 'minor' | 'nit';
-export type Verdict = 'optimal' | 'acceptable' | 'suboptimal';
+
+/**
+ * Graded by distance from the best known solution, because "you took a clumsy
+ * route to the right complexity" and "you missed the algorithm" deserve
+ * different reactions.
+ *
+ *   optimal     matches the best known complexity
+ *   suboptimal  same complexity class, but wasteful
+ *   missed      a worse complexity class
+ */
+export type Verdict = 'optimal' | 'suboptimal' | 'missed';
 
 export type Finding = {
   severity: Severity;
@@ -27,12 +37,12 @@ export type Analysis = {
   canonical?: { language: string; code: string; walkthrough: string };
 };
 
-const VERDICTS: Verdict[] = ['optimal', 'acceptable', 'suboptimal'];
+const VERDICTS: Verdict[] = ['optimal', 'suboptimal', 'missed'];
 const SEVERITIES: Severity[] = ['major', 'minor', 'nit'];
 
 /** The schema we show the model. Kept next to the parser so they can't drift. */
 export const SCHEMA_DESCRIPTION = `{
-  "verdict": "optimal" | "acceptable" | "suboptimal",
+  "verdict": "optimal" | "suboptimal" | "missed",
   "user":    { "time": "O(...)", "space": "O(...)", "reasoning": "why, citing the submitted code" },
   "optimal": { "time": "O(...)", "space": "O(...)" },
   "findings": [
@@ -93,6 +103,36 @@ function parseFinding(v: unknown): Finding | null {
   return { severity, title, explanation, snippet: str(f.snippet) };
 }
 
+/**
+ * Loose comparison of two complexity strings. Handles the usual spelling
+ * variations — O(n^2) / O(n²) / O(n * n) — so a verdict can be checked against
+ * the complexities the model itself reported. A nudge, not a proof: it will not
+ * tell you O(n log n) is worse than O(n).
+ */
+export function sameComplexity(a: string, b: string): boolean {
+  const norm = (s: string) => s
+    .toLowerCase()
+    .replace(/²/g, '2').replace(/³/g, '3')
+    .replace(/[\s^*·×]/g, '')
+    .replace(/\bnn\b/, 'n2');
+  return norm(a) === norm(b);
+}
+
+/**
+ * The model sometimes labels an O(n^2)-versus-O(n) gap "suboptimal". Since the
+ * distinction is defined by complexity class, and it already told us both
+ * complexities, believe the numbers over the label.
+ *
+ * Skips unknown complexities ('?'), which is what migrated v1 entries carry.
+ */
+function reconcileVerdict(verdict: Verdict, userTime: string, optimalTime: string): Verdict {
+  if (userTime.includes('?') || optimalTime.includes('?')) return verdict;
+  const matches = sameComplexity(userTime, optimalTime);
+  if (!matches && verdict === 'suboptimal') return 'missed';
+  if (matches && verdict === 'missed') return 'suboptimal';
+  return verdict;
+}
+
 /** Returns null unless the response is usable. Never throws. */
 export function parseAnalysis(raw: string): Analysis | null {
   const json = extractJson(raw);
@@ -128,7 +168,7 @@ export function parseAnalysis(raw: string): Analysis | null {
     : undefined;
 
   return {
-    verdict: o.verdict,
+    verdict: reconcileVerdict(o.verdict, userTime, optTime),
     user: { time: userTime, space: userSpace, reasoning: str(o.user?.reasoning) ?? '' },
     optimal: { time: optTime, space: optSpace },
     findings,

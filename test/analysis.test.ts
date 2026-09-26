@@ -13,19 +13,19 @@ const good = {
 
 test('clean JSON parses', () => {
   const a = parseAnalysis(JSON.stringify(good));
-  assert.equal(a?.verdict, 'suboptimal');
+  assert.equal(a?.verdict, 'missed', 'O(n^2) against O(n) is a missed algorithm');
   assert.equal(a?.findings.length, 1);
   assert.equal(a?.canonical?.language, 'java');
 });
 
 test('markdown-fenced JSON parses', () => {
   const a = parseAnalysis('```json\n' + JSON.stringify(good) + '\n```');
-  assert.equal(a?.verdict, 'suboptimal');
+  assert.equal(a?.verdict, 'missed');
 });
 
 test('JSON buried in prose parses', () => {
   const a = parseAnalysis(`Sure! Here's my analysis:\n\n${JSON.stringify(good)}\n\nHope that helps!`);
-  assert.equal(a?.verdict, 'suboptimal');
+  assert.equal(a?.verdict, 'missed');
 });
 
 test('braces inside strings do not confuse the extractor', () => {
@@ -44,6 +44,7 @@ test('unusable responses return null rather than throwing', () => {
   for (const junk of [
     '', 'I cannot help with that.', '{', '{"broken":', 'null', '[]',
     JSON.stringify({ ...good, verdict: 'excellent' }),   // not a known verdict
+    JSON.stringify({ ...good, verdict: 'acceptable' }),  // the retired v1 level
     JSON.stringify({ ...good, user: { time: 'O(n)' } }), // missing space
     JSON.stringify({ ...good, optimal: undefined }),
   ]) {
@@ -82,4 +83,40 @@ test('canonical is optional — cache hits omit it', () => {
 test('extractJson finds the first balanced object', () => {
   assert.equal(extractJson('x {"a":1} y {"b":2}'), '{"a":1}');
   assert.equal(extractJson('no json here'), null);
+});
+
+// --- verdict reconciliation ---------------------------------------------
+// The model often labels an O(n^2)-versus-O(n) gap "suboptimal". Since the
+// distinction is defined by complexity class and it already reported both
+// complexities, believe the numbers over the label.
+
+const withComplexity = (verdict: string, userTime: string, optimalTime: string) =>
+  JSON.stringify({
+    ...good, verdict,
+    user: { time: userTime, space: 'O(1)', reasoning: '' },
+    optimal: { time: optimalTime, space: 'O(n)' },
+  });
+
+test('a worse complexity class is upgraded to missed', () => {
+  assert.equal(parseAnalysis(withComplexity('suboptimal', 'O(n^2)', 'O(n)'))?.verdict, 'missed');
+});
+
+test('a matching complexity class is downgraded from missed to suboptimal', () => {
+  assert.equal(parseAnalysis(withComplexity('missed', 'O(n)', 'O(n)'))?.verdict, 'suboptimal');
+});
+
+test('optimal is never second-guessed', () => {
+  assert.equal(parseAnalysis(withComplexity('optimal', 'O(n)', 'O(n)'))?.verdict, 'optimal');
+});
+
+test('complexity spelling variants compare equal', () => {
+  for (const [a, b] of [['O(n^2)', 'O(n²)'], ['O(n * n)', 'O(n^2)'], ['O(N LOG N)', 'O(n log n)']]) {
+    assert.equal(parseAnalysis(withComplexity('missed', a!, b!))?.verdict, 'suboptimal',
+      `${a} should match ${b}`);
+  }
+});
+
+test('unknown complexities leave the verdict alone', () => {
+  // migrated v1 entries carry '?' — do not invent a reconciliation from nothing
+  assert.equal(parseAnalysis(withComplexity('suboptimal', '?', 'O(n)'))?.verdict, 'suboptimal');
 });

@@ -133,19 +133,27 @@ async function handleSubmission(payload: unknown) {
   // Keep what a follow-up would need. Session-scoped, so it never accumulates.
   await setContext(t.id, { slug: t.slug, lang, code: t.typedCode, analysis: result.analysis });
 
-  await appendHistory({
-    id: t.id,
-    slug: t.slug,
-    solvedAt: Date.now(),
-    language: lang,
-    analysis: forStorage(result.analysis),
-    runtimePercentile: t.runtimePercentile,
-  });
+  let recorded = true;
+  try {
+    await appendHistory({
+      id: t.id,
+      slug: t.slug,
+      solvedAt: Date.now(),
+      language: lang,
+      analysis: forStorage(result.analysis),
+      runtimePercentile: t.runtimePercentile,
+    });
+  } catch (e) {
+    // Most likely a storage quota failure. The analysis is still worth showing,
+    // but it must not silently claim to have been recorded.
+    console.error('[leetcoach] history write failed', e);
+    recorded = false;
+  }
 
   // `raw` is the full model response text. The panel never reads it, and it
   // echoes the user's code back across a message boundary. Drop it here.
   const { raw: _raw, ...forPanel } = result;
-  return { ...forPanel, cacheHit: !!canonical, cached: stored };
+  return { ...forPanel, cacheHit: !!canonical, cached: stored, recorded };
 }
 
 /** Lets the popup exercise the whole pipeline without solving a problem. */

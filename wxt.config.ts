@@ -6,7 +6,10 @@ export default defineConfig({
   manifest: {
     name: 'LeetCoach (Phase 0 spike)',
     description: 'Post-submission analysis for LeetCode.',
-    permissions: ['storage'],
+    // `unlimitedStorage` removes the ~10 MB cap on chrome.storage.local.
+    // Without it the canonical-solution cache eventually fills, and then every
+    // submission fails on the write rather than degrading.
+    permissions: ['storage', 'unlimitedStorage'],
     host_permissions: [
       'https://api.anthropic.com/*',
       'https://api.subconscious.dev/*',

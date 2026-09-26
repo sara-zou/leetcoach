@@ -76,7 +76,9 @@ export const historyItem = storage.defineItem<HistoryEntry[]>('local:history', {
         runtimePercentile: e.runtimePercentile,
         takeaway: e.takeaway,
         analysis: {
-          verdict: e.verdict ?? 'acceptable',
+          // v1 had no "missed" level, so an old "suboptimal" could be either.
+          // Downgrade to the milder reading rather than inventing a failure.
+          verdict: e.verdict === 'optimal' ? 'optimal' : 'suboptimal',
           patterns: e.patterns ?? [],
           user: { time: '?', space: '?', reasoning: '' },
           optimal: { time: '?', space: '?' },
@@ -114,14 +116,15 @@ export async function getContext(id: string): Promise<SubmissionContext | null> 
 
 /** Attach a takeaway to an already-recorded submission. */
 export function setHistoryTakeaway(id: string, takeaway: string): Promise<void> {
-  historyQueue = historyQueue.then(async () => {
+  const run = historyQueue.then(async () => {
     const history = await historyItem.getValue();
     const entry = history.find((h) => h.id === id);
     if (!entry) return;
     entry.takeaway = takeaway;
     await historyItem.setValue(history);
-  }).catch((e) => { console.error('[leetcoach] takeaway write failed', e); });
-  return historyQueue as Promise<void>;
+  });
+  historyQueue = run.catch(() => {});
+  return run;
 }
 
 /** Canonical solutions are cached forever, keyed by problem + language. */
@@ -137,10 +140,23 @@ export async function setCanonical(slug: string, lang: string, code: string): Pr
 }
 
 export function appendHistory(entry: HistoryEntry): Promise<void> {
-  historyQueue = historyQueue.then(async () => {
+  const run = historyQueue.then(async () => {
     const history = await historyItem.getValue();
     history.push(entry);
     await historyItem.setValue(history.slice(-500)); // bounded
-  }).catch((e) => { console.error('[leetcoach] history write failed', e); });
-  return historyQueue as Promise<void>;
+  });
+  // Keep the queue alive on failure, but let THIS caller see it. Swallowing it
+  // here meant a quota error showed an analysis on screen and never recorded
+  // it, with nothing to indicate the loss.
+  historyQueue = run.catch(() => {});
+  return run;
+}
+
+/** Bytes currently used by `local:`, for the popup to show. */
+export async function storageUsage(): Promise<number> {
+  try {
+    return await browser.storage.local.getBytesInUse(null);
+  } catch {
+    return 0; // not all builds implement it
+  }
 }
