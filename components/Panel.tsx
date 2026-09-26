@@ -24,7 +24,7 @@ export function Panel({ store, onAsk }: { store: PanelStore; onAsk: AskFn }) {
   if (!open) {
     return (
       <button className="lc-pill" onClick={() => setOpen(true)}>
-        {state.status === 'done' ? verdictLabel(state.analysis.verdict) : 'LeetCoach'}
+        {state.status === 'done' ? verdictLabel(state.analysis.verdict, state.accepted) : 'LeetCoach'}
       </button>
     );
   }
@@ -45,16 +45,21 @@ function Body({ state, onAsk }: { state: PanelState; onAsk: AskFn }) {
   if (state.status === 'error') return <Failed state={state} />;
   if (state.status !== 'done') return null;
 
-  const { analysis: a, ms, cacheHit } = state;
+  const { analysis: a, ms, cacheHit, accepted } = state;
   return (
     <div className="lc-body">
-      <div className={`lc-verdict ${a.verdict}`}>{verdictLabel(a.verdict)}</div>
+      {/* The badge is coloured by the judge's outcome and worded by the verdict,
+          so a rejection stays unmistakably red even when the verdict is the
+          same "missed" an accepted solution could earn. */}
+      <div className={`lc-verdict ${accepted ? a.verdict : 'rejected'}`}>
+        {verdictLabel(a.verdict, accepted)}
+      </div>
 
       <div className="lc-cx">
-        <div><span>{a.verdict === 'failed' ? 'submitted' : 'yours'}</span>
+        <div><span>{accepted ? 'yours' : 'submitted'}</span>
           <b>{a.user.time}</b><i>{a.user.space} space</i></div>
         <div className="arrow">→</div>
-        <div><span>{a.verdict === 'failed' ? 'needed' : 'optimal'}</span>
+        <div><span>{accepted ? 'optimal' : 'needed'}</span>
           <b>{a.optimal.time}</b><i>{a.optimal.space} space</i></div>
       </div>
 
@@ -170,8 +175,17 @@ function Failed({ state }: { state: Extract<PanelState, { status: 'error' }> }) 
   );
 }
 
-const verdictLabel = (v: string) =>
-  v === 'optimal' ? 'optimal'
-  : v === 'suboptimal' ? 'right idea, wasteful'
-  : v === 'missed' ? 'missed a better approach'
-  : 'rejected';
+/**
+ * The two axes read as one line: what the judge did, then what went wrong.
+ * "rejected · missed a better approach" is a TLE; "rejected" alone is a Wrong
+ * Answer, where naming the gap again would only repeat itself.
+ */
+function verdictLabel(v: string, accepted: boolean): string {
+  const nature =
+    v === 'optimal' ? 'optimal'
+    : v === 'suboptimal' ? 'right idea, wasteful'
+    : v === 'missed' ? 'missed a better approach'
+    : 'incorrect';
+  if (accepted) return nature;
+  return v === 'incorrect' ? 'rejected' : `rejected · ${nature}`;
+}

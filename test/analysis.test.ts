@@ -120,3 +120,44 @@ test('unknown complexities leave the verdict alone', () => {
   // migrated v1 entries carry '?' — do not invent a reconciliation from nothing
   assert.equal(parseAnalysis(withComplexity('suboptimal', '?', 'O(n)'))?.verdict, 'suboptimal');
 });
+
+// --- limit failures ------------------------------------------------------
+// A rejection is normally taken at face value, because a Wrong Answer is a
+// correctness gap and complexity has nothing to say about it. A Time or Memory
+// Limit failure is the exception: running out of budget IS a complexity result,
+// so it gets graded on the same scale as an accepted submission.
+
+test('a wrong answer stays incorrect however the complexities compare', () => {
+  assert.equal(parseAnalysis(withComplexity('incorrect', 'O(n^2)', 'O(n)'))?.verdict, 'incorrect');
+  assert.equal(parseAnalysis(withComplexity('incorrect', 'O(n)', 'O(n)'))?.verdict, 'incorrect');
+});
+
+test('a TLE with a worse complexity class is graded as missed', () => {
+  // The prompt asks the model for this, but a model that is told "rejected"
+  // reaches for "incorrect" anyway. This is the correction that makes a TLE
+  // and an accepted-but-quadratic solve count as the same mistake.
+  const a = parseAnalysis(withComplexity('incorrect', 'O(n^2)', 'O(n)'), { limitFailure: true });
+  assert.equal(a?.verdict, 'missed');
+});
+
+test('a TLE at the right complexity class is a constant-factor problem', () => {
+  const a = parseAnalysis(withComplexity('incorrect', 'O(n log n)', 'O(n log n)'), { limitFailure: true });
+  assert.equal(a?.verdict, 'suboptimal', 'right algorithm, too slow anyway');
+});
+
+test('a TLE with unknown complexities still counts as missed', () => {
+  // Nothing to compare, but the judge proved the approach did not finish in
+  // budget — which is the least "missed" can mean.
+  assert.equal(parseAnalysis(withComplexity('incorrect', '?', '?'), { limitFailure: true })?.verdict, 'missed');
+});
+
+test('a limit failure the model already graded is left alone', () => {
+  assert.equal(parseAnalysis(withComplexity('missed', 'O(n^2)', 'O(n)'), { limitFailure: true })?.verdict, 'missed');
+  assert.equal(parseAnalysis(withComplexity('suboptimal', 'O(n)', 'O(n)'), { limitFailure: true })?.verdict, 'suboptimal');
+});
+
+test('"failed" is no longer a verdict', () => {
+  // It only restated `outcome`. Rejecting it here keeps a stale model reply or
+  // an unmigrated record from quietly reintroducing the collapsed axis.
+  assert.equal(parseAnalysis(JSON.stringify({ ...good, verdict: 'failed' })), null);
+});

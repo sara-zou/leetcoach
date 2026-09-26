@@ -7,7 +7,7 @@ optimal solution and a critique of the code you actually wrote.
 
 ```bash
 npm install
-npm test                                  # 48 tests, no browser, no key
+npm test                                  # 108 tests, no browser, no key
 LEETCOACH_KEY=… npm run try               # real prompt -> real model -> real parser
 npm run dev                               # opens Chrome with the extension loaded
 ```
@@ -115,6 +115,19 @@ Three traps, all confirmed against real traffic:
 2. **`state: "SUCCESS"` means the judge finished, not that you passed.** A Wrong
    Answer reports it too. Accepted is `status_code === 10`.
 3. **The page keeps polling after the verdict lands.** Fire once.
+
+### Verdicts
+
+Two axes, deliberately not collapsed into one:
+
+- `outcome` — `accepted` or `failed`. What the judge did.
+- `verdict` — `optimal` / `suboptimal` / `missed` / `incorrect`. What kind of
+  gap it was.
+
+A Time Limit Exceeded is `outcome: failed`, `verdict: missed` — the same verdict
+an accepted-but-quadratic solve earns, because it is the same mistake and only
+the time limit told them apart. A Wrong Answer is `incorrect`, where complexity
+has nothing to say. See [DECISIONS.md](DECISIONS.md) #10.
 
 Field names and URLs were captured with `scripts/capture.js` rather than assumed;
 LeetCode has no public API. Fixtures live in `test/fixtures/`.

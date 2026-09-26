@@ -193,3 +193,54 @@ test('summarise separates accepted from failed', () => {
   assert.equal(s.accepted, 1);
   assert.equal(s.failed, 2);
 });
+
+// --- the two axes ----------------------------------------------------------
+// `outcome` says whether the judge accepted it; `analysis.verdict` says what
+// kind of gap it was. A TLE sits on both, and the stats have to reflect that
+// or the thing the tool exists to notice stays invisible.
+
+/** A rejection that WAS analysed — which is what a TLE now produces. */
+const tle = (slug: string, patterns: string[], verdict: 'missed' | 'suboptimal' = 'missed'): HistoryEntry =>
+  ({ ...entry(slug, verdict, patterns), outcome: 'failed', statusMsg: 'Time Limit Exceeded' });
+
+test('a TLE counts as both a failure and a missed complexity class', () => {
+  const stats = weakPatterns([tle('a', ['dp']), tle('b', ['dp']), tle('c', ['dp'])]);
+  assert.equal(stats[0]!.total, 3);
+  assert.equal(stats[0]!.failed, 3, 'it did not pass');
+  assert.equal(stats[0]!.missed, 3, 'and the approach was the wrong complexity class');
+  assert.equal(stats[0]!.rate, 1, 'but counted once, so the rate stays a fraction of total');
+});
+
+test('missing the complexity class ranks the same whether or not you got away with it', () => {
+  // The point of splitting the axes: three TLEs and three accepted-but-slow
+  // solves are the same mistake, and lumping the TLEs under "failed" alone
+  // would have hidden half of it.
+  const stats = weakPatterns([
+    tle('a', ['sliding window']), tle('b', ['sliding window']),
+    entry('c', 'missed', ['sliding window']), entry('d', 'missed', ['sliding window']),
+  ]);
+  assert.equal(stats[0]!.missed, 4, 'all four misjudged the complexity');
+  assert.equal(stats[0]!.failed, 2, 'only two were caught by the limit');
+});
+
+test('a TLE at the right complexity class is clumsy, not missed', () => {
+  const stats = weakPatterns([
+    tle('a', ['bfs'], 'suboptimal'), tle('b', ['bfs'], 'suboptimal'), tle('c', ['bfs'], 'suboptimal'),
+  ]);
+  assert.equal(stats[0]!.missed, 0);
+  assert.equal(stats[0]!.clumsy, 3);
+  assert.equal(stats[0]!.failed, 3);
+  assert.equal(stats[0]!.rate, 1, 'still went wrong every time');
+});
+
+test('rate can never exceed 1 when both axes fire', () => {
+  const stats = weakPatterns([tle('a', ['dp']), tle('b', ['dp']), entry('c', 'optimal', ['dp'])]);
+  assert.ok(stats[0]!.rate <= 1);
+  assert.equal(Math.round(stats[0]!.rate * 100), 67);
+});
+
+test('summarise counts a rejected TLE under missed', () => {
+  const s = summarise([tle('a', ['dp']), entry('b', 'optimal', [])]);
+  assert.equal(s.failed, 1);
+  assert.equal(s.missed, 1, 'the verdict axis spans both outcomes');
+});

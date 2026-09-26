@@ -48,7 +48,7 @@ export type HistoryEntry = {
   outcome: 'accepted' | 'failed';
   /** For failures: "Wrong Answer", "Time Limit Exceeded", ... */
   statusMsg?: string;
-  /** Present only for accepted submissions — nothing is analysed otherwise. */
+  /** Absent for compile errors, which are recorded but never analysed. */
   analysis?: StoredAnalysis;
   runtimePercentile?: number;
   /** Filled in later, if the user asks for it. The most re-readable thing the
@@ -60,6 +60,10 @@ export type StoredAnalysis = Omit<Analysis, 'canonical'>;
 
 export const forStorage = ({ canonical: _drop, ...rest }: Analysis): StoredAnalysis => rest;
 
+/** Time/Memory/Output Limit Exceeded, as the judge spells them. Used only by
+ *  the v4 migration, which has nothing but the message to go on. */
+const LIMIT_MSG = /limit exceeded/i;
+
 /**
  * Serialises writes. appendHistory is read-modify-write, so two submissions
  * finishing close together would both read the same array and the second write
@@ -70,8 +74,18 @@ let historyQueue: Promise<unknown> = Promise.resolve();
 
 export const historyItem = storage.defineItem<HistoryEntry[]>('local:history', {
   fallback: [],
-  version: 3,
+  version: 4,
   migrations: {
+    // v3 used verdict "failed", which only restated `outcome`. The verdict now
+    // describes the kind of gap instead, so a rejection is "incorrect" unless
+    // it was a limit failure — and we no longer know which it was, since only
+    // `statusMsg` survived. Read it back rather than flattening everything to
+    // "incorrect", which would hide exactly the TLEs this split exists for.
+    4: (entries: any[]): HistoryEntry[] =>
+      (entries ?? []).map((e) => e.analysis?.verdict === 'failed'
+        ? { ...e, analysis: { ...e.analysis, verdict: LIMIT_MSG.test(e.statusMsg ?? '') ? 'missed' : 'incorrect' } }
+        : e),
+
     // v1 stored only `verdict` and `patterns` at the top level, so a past
     // analysis could not be reviewed — the findings were never persisted.
     // Old entries keep what they had; the rest is genuinely gone.

@@ -103,7 +103,8 @@ code {
 .verdict.optimal { background: #dcfce7; color: #15803d; }
 .verdict.suboptimal { background: #fef9c3; color: #854d0e; }
 .verdict.missed { background: #fee2e2; color: #b91c1c; }
-.verdict.failed { background: #7f1d1d; color: #fff; }
+.verdict.rejected { background: #7f1d1d; color: #fff; }
+.verdict.incorrect { background: #7f1d1d; color: #fff; }
 
 .cx { display: flex; gap: 14px; font-size: 12px; color: #555; }
 .cx b { color: #111; font-variant-numeric: tabular-nums; }

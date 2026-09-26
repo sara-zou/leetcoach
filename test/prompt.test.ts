@@ -106,3 +106,14 @@ test('an accepted submission still gets the critique prompt', () => {
   const { system } = buildAnalysisPrompt(base);
   assert.match(system, /You review accepted LeetCode solutions/);
 });
+
+test('the failure prompt grades a limit failure by complexity, not by rejection', () => {
+  const { system } = buildAnalysisPrompt({
+    ...base, failure: { statusMsg: 'Time Limit Exceeded', limitFailure: true },
+  });
+  // The old instruction was a flat "set verdict to failed", which made the
+  // verdict restate the outcome and told us nothing we did not already know.
+  assert.doesNotMatch(system, /Set "verdict" to "failed"/);
+  assert.match(system, /"missed"\s+—.*Time or Memory Limit/);
+  assert.match(system, /"incorrect"\s+—.*Wrong Answer/);
+});

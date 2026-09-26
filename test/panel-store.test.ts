@@ -53,12 +53,15 @@ test('failures surface as errors rather than vanishing', () => {
 });
 
 test('auto-open: nags about suboptimal, stays quiet when you got it right', () => {
-  const mk = (verdict: string): PanelState =>
-    ({ status: 'done', slug: 'x', id: '1', analysis: analysis(verdict) as any, ms: 1, cacheHit: false, followups: {} });
+  const mk = (verdict: string, accepted = true): PanelState =>
+    ({ status: 'done', slug: 'x', id: '1', analysis: analysis(verdict) as any, accepted, ms: 1, cacheHit: false, followups: {} });
 
   assert.equal(shouldAutoOpen(mk('suboptimal')), true);
   assert.equal(shouldAutoOpen(mk('acceptable')), true);
   assert.equal(shouldAutoOpen(mk('optimal')), false, 'a clean solve should not interrupt');
+  // Nothing the model says about the shape of the gap should suppress the
+  // panel when the submission never passed.
+  assert.equal(shouldAutoOpen(mk('optimal', false)), true, 'a rejection always opens');
   assert.equal(shouldAutoOpen({ status: 'idle' }), false);
   assert.equal(shouldAutoOpen({ status: 'analyzing', slug: 'x', startedAt: 0 }), true);
 });
@@ -69,7 +72,7 @@ test('auto-open follows the whole transition, not just the opening half', () => 
   // leaves it stuck open and every clean solve gets interrupted.
   const analyzing: PanelState = { status: 'analyzing', slug: 'two-sum', startedAt: 0 };
   const done = (verdict: string): PanelState =>
-    ({ status: 'done', slug: 'two-sum', id: '1', analysis: analysis(verdict) as any, ms: 1, cacheHit: false, followups: {} });
+    ({ status: 'done', slug: 'two-sum', id: '1', analysis: analysis(verdict) as any, accepted: true, ms: 1, cacheHit: false, followups: {} });
 
   assert.equal(shouldAutoOpen(analyzing), true, 'opens to show progress');
   assert.equal(shouldAutoOpen(done('optimal')), false, 'and must close again on a clean solve');
@@ -169,4 +172,21 @@ test('a failed follow-up shows an error, not a stuck spinner', () => {
   s.startFollowup('complexity');
   s.resolveFollowup('complexity', { ok: false, kind: 'auth', message: 'bad key' });
   assert.equal((s.get() as any).followups.complexity.status, 'error');
+});
+
+test('the judge outcome survives the message boundary', () => {
+  // The verdict alone can no longer say "this was rejected" — a TLE is
+  // verdict "missed", the same as an accepted-but-quadratic solve.
+  const s = new PanelStore();
+  s.startAnalyzing('1', 'two-sum');
+  s.resolve('1', { ok: true, analysis: analysis('missed'), accepted: false, ms: 1 });
+  assert.equal((s.get() as any).accepted, false);
+});
+
+test('an absent accepted flag reads as accepted', () => {
+  // Older background replies, and every reply before this split existed.
+  const s = new PanelStore();
+  s.startAnalyzing('1', 'two-sum');
+  s.resolve('1', { ok: true, analysis: analysis('optimal'), ms: 1 });
+  assert.equal((s.get() as any).accepted, true);
 });

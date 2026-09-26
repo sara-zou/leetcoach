@@ -139,9 +139,7 @@ sharper weakness signal than any verdict on a solution that passed.
 **Why analyse them.** A Time Limit failure *is* a complexity problem, which is
 the thing this tool is best at — arguably the highest-value moment it can act
 on, since the feedback arrives while you are still stuck. A Wrong Answer is an
-edge case worth finding. `failed` becomes a fourth level on the same verdict
-scale rather than a separate concept, so severity ordering is built in and the
-panel renders one badge.
+edge case worth finding.
 
 **Except compile errors.** The compiler already said what was wrong, in more
 detail and for free. `worthAnalysing()` encodes that, and both the content
@@ -163,13 +161,58 @@ technique — so `weakPatterns` attributes earlier failures on the same problem 
 it. Without this, repeatedly failing at a pattern stays invisible and only
 successes count, which inverts the signal.
 
-**Note the axis.** This is orthogonal to decision 7. Verdicts grade accepted
-solutions by complexity class; `outcome` records whether the judge accepted it
-at all. Ranking uses both: outright failure outranks a wrong complexity class,
-which outranks an untidy route to the right one.
+**Note the axis.** This is orthogonal to decision 7, and decision 10 explains
+why keeping it that way matters.
 
 **Revisit if:** an "explain why this failed" button is wanted. That would be a
 model call on failures, and the spend cap should exist first.
+
+---
+
+## 10. A TLE is a *missed* complexity class, not its own category
+
+**Decision.** `verdict` describes the **nature of the gap**; `outcome` records
+**whether the judge accepted it**. Two axes, never collapsed into one:
+
+|                | accepted                              | failed        |
+|----------------|---------------------------------------|---------------|
+| **missed**     | passed, but O(n²) where O(n) exists    | TLE / MLE     |
+| **suboptimal** | passed, right class, wasteful          | TLE on constant factors |
+| **incorrect**  | —                                      | Wrong Answer, crash |
+
+The scale is `optimal` / `suboptimal` / `missed` / `incorrect`. The retired
+fourth level was called `failed`, which only restated `outcome` and so spent the
+verdict slot saying nothing new.
+
+**Why.** A TLE and an accepted-but-quadratic solve are the *same mistake* — the
+only difference is whether the time limit happened to catch it. Counting a TLE
+solely as a failure meant "you keep misjudging complexity" showed up only in the
+cases where you got away with it, which is backwards. `weakPatterns` now counts
+the two axes independently, so a TLE increments both `failed` and `missed`.
+
+**How it is enforced.** Not by trusting the prompt. A model told "the judge
+rejected this" reaches for `incorrect` whatever the instructions say, so
+`reconcileVerdict` grades a limit failure by the complexities the model itself
+reported — the same correction already applied to accepted submissions in
+decision 7. `isLimitFailure()` decides from the status code, where it is known,
+rather than by matching on the status message downstream.
+
+**Why not the reverse — grade every rejection by complexity.** A Wrong Answer is
+a correctness gap; the complexity numbers have nothing to say about it. Only
+time and memory limits are genuinely complexity results.
+
+**What it costs.** A v4 history migration, and it can only guess: v3 stored
+`verdict: "failed"` with no status code, so the migration reads `statusMsg` for
+"limit exceeded". A record whose message was lost degrades to `incorrect`.
+
+**What it costs the UI.** The panel now needs `accepted` as well as the
+analysis, because the verdict alone can no longer say "this was rejected". The
+badge is coloured by outcome and worded by verdict: "rejected · missed a better
+approach".
+
+**Revisit if:** a rate ever needs to exceed 1, which would mean the axes have
+been conflated again somewhere. `weakPatterns` counts an entry once for `rate`
+even when both axes fire, and there is a test pinning that.
 
 ---
 

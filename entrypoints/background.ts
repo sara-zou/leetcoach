@@ -1,5 +1,5 @@
 import { parseTerminal } from '../lib/protocol';
-import { worthAnalysing } from '../lib/detect';
+import { worthAnalysing, isLimitFailure } from '../lib/detect';
 import { analyze, askFollowup, type ModelConfig } from '../lib/model';
 import {
   providerItem, apiKeysItem, modelsItem,
@@ -125,6 +125,9 @@ async function handleSubmission(payload: unknown) {
     // fail". Same output schema, so one parser and one renderer.
     failure: t.accepted ? undefined : {
       statusMsg: t.statusMsg ?? 'Rejected',
+      // Decided from the status code here, where it is known, rather than by
+      // matching on the human-readable status message further down.
+      limitFailure: isLimitFailure(t.statusCode),
       totalCorrect: t.totalCorrect,
       totalTestcases: t.totalTestcases,
       ...t.failure,
@@ -165,7 +168,9 @@ async function handleSubmission(payload: unknown) {
   // `raw` is the full model response text. The panel never reads it, and it
   // echoes the user's code back across a message boundary. Drop it here.
   const { raw: _raw, ...forPanel } = result;
-  return { ...forPanel, cacheHit: !!canonical, cached: stored, recorded };
+  // The panel needs the judge's outcome as well as the verdict: the verdict now
+  // describes the kind of gap, so on its own it cannot say "this was rejected".
+  return { ...forPanel, accepted: t.accepted, cacheHit: !!canonical, cached: stored, recorded };
 }
 
 /**

@@ -18,7 +18,14 @@ export type Followups = Partial<Record<FollowupKind, Followup>>;
 export type PanelState =
   | { status: 'idle' }
   | { status: 'analyzing'; slug: string; startedAt: number }
-  | { status: 'done'; slug: string; id: string; analysis: Analysis; ms: number; cacheHit: boolean; followups: Followups }
+  | {
+      status: 'done'; slug: string; id: string; analysis: Analysis;
+      /** The judge's outcome. Separate from `analysis.verdict`, which grades
+       *  the kind of gap — a rejected TLE is verdict "missed", and only this
+       *  says it never passed. */
+      accepted: boolean;
+      ms: number; cacheHit: boolean; followups: Followups;
+    }
   | { status: 'error'; slug: string; kind: string; message: string };
 
 export type Listener = (s: PanelState) => void;
@@ -67,6 +74,7 @@ export class PanelStore {
         slug,
         id: submissionId,
         analysis: result.analysis,
+        accepted: result.accepted !== false, // absent means accepted, as before
         ms: result.ms ?? 0,
         cacheHit: !!result.cacheHit,
         followups: {}, // fresh per submission; never carried over
@@ -112,6 +120,7 @@ export class PanelStore {
 /** Suboptimal results open the panel; a clean result shouldn't nag. */
 export function shouldAutoOpen(s: PanelState): boolean {
   if (s.status === 'analyzing' || s.status === 'error') return true;
-  if (s.status === 'done') return s.analysis.verdict !== 'optimal';
+  // A rejection always opens, whatever the verdict says about why.
+  if (s.status === 'done') return !s.accepted || s.analysis.verdict !== 'optimal';
   return false;
 }

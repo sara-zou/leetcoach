@@ -92,7 +92,10 @@ header {
 /* wrong complexity class — the approach itself was wrong */
 .lc-verdict.missed { background: #fee2e2; color: #b91c1c; }
 /* the judge rejected it — the most severe level */
-.lc-verdict.failed { background: #7f1d1d; color: #fff; }
+/* `rejected` is keyed off the judge's outcome, not the verdict — a TLE is
+   verdict "missed" but must not look like an accepted-but-slow solve. */
+.lc-verdict.rejected { background: #7f1d1d; color: #fff; }
+.lc-verdict.incorrect { background: #7f1d1d; color: #fff; }
 .lc-verdict.error { background: #f4f4f5; color: #52525b; }
 
 .lc-cx {

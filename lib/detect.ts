@@ -67,6 +67,22 @@ export function worthAnalysing(statusCode: number): boolean {
   return statusCode !== STATUS.COMPILE_ERROR;
 }
 
+/**
+ * Whether the judge rejected this for running out of a budget rather than for
+ * being wrong.
+ *
+ * These are the rejections that are really complexity results: the code was
+ * correct enough to keep going, it just could not finish in the space allowed.
+ * So they get graded on the same scale as an accepted submission — a TLE and
+ * an accepted-but-quadratic solve are the same mistake with different luck on
+ * the limit.
+ */
+export function isLimitFailure(statusCode: number): boolean {
+  return statusCode === STATUS.TIME_LIMIT_EXCEEDED
+    || statusCode === STATUS.MEMORY_LIMIT_EXCEEDED
+    || statusCode === STATUS.OUTPUT_LIMIT_EXCEEDED;
+}
+
 export type Origin = {
   kind: 'submit' | 'interpret';
   slug: string;

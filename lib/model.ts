@@ -75,7 +75,9 @@ export async function analyze(cfg: ModelConfig, input: AnalysisInput): Promise<A
   const res = await call(cfg, system, user, 4096);
   if (!res.ok) return res;
 
-  const analysis = parseAnalysis(res.text);
+  // The judge's own verdict constrains ours: a time or memory limit failure is
+  // graded by complexity class rather than taken as "this is broken".
+  const analysis = parseAnalysis(res.text, { limitFailure: input.failure?.limitFailure });
   if (!analysis) {
     return {
       ok: false, kind: 'unparseable', ms: res.ms, raw: res.text,

@@ -12,13 +12,20 @@ import type { HistoryEntry } from './storage.ts';
 export type PatternStat = {
   pattern: string;
   total: number;
-  /** Didn't pass the judge at all. */
+  /** Didn't pass the judge at all — the `outcome` axis. */
   failed: number;
-  /** Accepted, but a worse complexity class than optimal. */
+  /**
+   * Reached for a worse complexity class than the problem needs — the `verdict`
+   * axis. Deliberately NOT exclusive with `failed`: a TLE counts in both, and
+   * so does an accepted-but-quadratic solve, because they are the same mistake
+   * and only the time limit told them apart. Counting a TLE as failure alone
+   * would hide the pattern this projection exists to surface.
+   */
   missed: number;
-  /** Accepted, right complexity class, but wasteful. */
+  /** Right complexity class, but wasteful. */
   clumsy: number;
-  /** (failed + missed) / total — how often you didn't get this right. */
+  /** How often this pattern went wrong either way. Counts an entry once even
+   *  when it is both failed and missed, so it stays a fraction of `total`. */
   rate: number;
 };
 
@@ -47,26 +54,35 @@ export const recent = (entries: HistoryEntry[], n = 20): HistoryEntry[] =>
  * with a single sample every rate is 0% or 100% and the ranking is noise.
  */
 export function weakPatterns(entries: HistoryEntry[], minSamples = 3): PatternStat[] {
-  const counts = new Map<string, { total: number; failed: number; missed: number; clumsy: number }>();
+  type Count = { total: number; failed: number; missed: number; clumsy: number; wrong: number };
+  const counts = new Map<string, Count>();
   const known = patternsBySlug(entries);
 
   for (const e of entries) {
     const patterns = e.analysis?.patterns ?? known.get(e.slug) ?? [];
     for (const pattern of new Set(patterns)) { // don't double-count within one entry
-      const c = counts.get(pattern) ?? { total: 0, failed: 0, missed: 0, clumsy: 0 };
+      const c = counts.get(pattern) ?? { total: 0, failed: 0, missed: 0, clumsy: 0, wrong: 0 };
       c.total += 1;
-      // `outcome` is the judge's fact and wins; the verdict only grades what
-      // the judge accepted.
-      if (e.outcome === 'failed') c.failed += 1;
-      else if (e.analysis?.verdict === 'missed') c.missed += 1;
+
+      // The two axes are counted independently, because they answer different
+      // questions: `failed` is "did this pass", `missed` is "was the approach
+      // right". A Time Limit Exceeded is both, and needs to be, or the fact
+      // that you keep misjudging complexity only shows up when you got away
+      // with it.
+      const failed = e.outcome === 'failed';
+      const missed = e.analysis?.verdict === 'missed';
+      if (failed) c.failed += 1;
+      if (missed) c.missed += 1;
       else if (e.analysis?.verdict === 'suboptimal') c.clumsy += 1;
+      if (failed || missed) c.wrong += 1;
+
       counts.set(pattern, c);
     }
   }
 
   return [...counts.entries()]
     .filter(([, c]) => c.total >= minSamples)
-    .map(([pattern, c]) => ({ pattern, ...c, rate: (c.failed + c.missed) / c.total }))
+    .map(([pattern, { wrong: _w, ...c }]) => ({ pattern, ...c, rate: _w / c.total }))
     // rank on outright failure first, then clumsiness, since not passing and
     // passing untidily are different problems
     .sort((a, b) =>
@@ -99,6 +115,8 @@ export function summarise(entries: HistoryEntry[]): Summary {
 
   for (const e of entries) {
     if (e.outcome === 'failed') failed += 1; else accepted += 1;
+    // The verdict counts span both outcomes, so they do not sum to `accepted` —
+    // a rejected TLE is counted as `missed` here, which is what it was.
     if (e.analysis?.verdict === 'optimal') optimal += 1;
     if (e.analysis?.verdict === 'suboptimal') suboptimal += 1;
     if (e.analysis?.verdict === 'missed') missed += 1;
