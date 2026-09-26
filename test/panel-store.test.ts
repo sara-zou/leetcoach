@@ -62,3 +62,16 @@ test('auto-open: nags about suboptimal, stays quiet when you got it right', () =
   assert.equal(shouldAutoOpen({ status: 'idle' }), false);
   assert.equal(shouldAutoOpen({ status: 'analyzing', slug: 'x', startedAt: 0 }), true);
 });
+
+test('auto-open follows the whole transition, not just the opening half', () => {
+  // The panel opens during `analyzing` to show progress. If the verdict then
+  // comes back optimal it must close again — checking only "should I open?"
+  // leaves it stuck open and every clean solve gets interrupted.
+  const analyzing: PanelState = { status: 'analyzing', slug: 'two-sum', startedAt: 0 };
+  const done = (verdict: string): PanelState =>
+    ({ status: 'done', slug: 'two-sum', analysis: analysis(verdict) as any, ms: 1, cacheHit: false });
+
+  assert.equal(shouldAutoOpen(analyzing), true, 'opens to show progress');
+  assert.equal(shouldAutoOpen(done('optimal')), false, 'and must close again on a clean solve');
+  assert.equal(shouldAutoOpen(done('suboptimal')), true, 'but stays open when there is something to say');
+});

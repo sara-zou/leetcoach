@@ -118,7 +118,9 @@ function Ok({ r }: { r: any }) {
         </div>
       ))}
       <p className="hint">
-        {r.ms}ms · {r.cacheHit ? 'cache hit' : 'cached canonical for next time'}
+        {r.ms}ms · {r.cacheHit ? 'cache hit'
+          : r.cached ? 'cached canonical for next time'
+          : 'no canonical returned — nothing cached'}
       </p>
     </div>
   );

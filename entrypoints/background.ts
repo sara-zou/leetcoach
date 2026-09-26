@@ -71,8 +71,13 @@ async function handleSubmission(payload: unknown) {
 
   if (!result.ok) return result;
 
+  // Report whether we actually stored one. If the model omits `canonical` on a
+  // miss, nothing is cached and every future analysis of this problem pays full
+  // price — worth surfacing rather than claiming success.
+  let stored = false;
   if (!canonical && result.analysis.canonical?.code) {
     await setCanonical(t.slug, lang, result.analysis.canonical.code);
+    stored = true;
   }
 
   await appendHistory({
@@ -84,7 +89,7 @@ async function handleSubmission(payload: unknown) {
     runtimePercentile: t.runtimePercentile,
   });
 
-  return { ...result, cacheHit: !!canonical };
+  return { ...result, cacheHit: !!canonical, cached: stored };
 }
 
 /** Lets the popup exercise the whole pipeline without solving a problem. */

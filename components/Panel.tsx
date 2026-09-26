@@ -9,8 +9,12 @@ export function Panel({ store }: { store: PanelStore }) {
   );
   const [open, setOpen] = useState(false);
 
-  // open when there's something worth saying; a clean solve shouldn't interrupt
-  useEffect(() => { if (shouldAutoOpen(state)) setOpen(true); }, [state.status]);
+  // Follow the state on every transition, in both directions. Opening only —
+  // `if (shouldAutoOpen) setOpen(true)` — silently breaks the quiet case: the
+  // panel opens during `analyzing`, and nothing closes it again when the
+  // verdict turns out to be optimal. Manual opens survive until the next
+  // transition, which is what you want.
+  useEffect(() => { setOpen(shouldAutoOpen(state)); }, [state.status]);
 
   if (state.status === 'idle') return null;
 
