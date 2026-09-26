@@ -28,29 +28,30 @@ npm run dev                               # opens Chrome with the extension load
 | `entrypoints/popup` — settings | done |
 | `components/Panel.tsx` — results panel | done, shadow-root React |
 | history / weak-pattern stats | **not built** |
-| follow-up chat with the coach | **not built** — see Planned |
+| "ask the coach" buttons | **not built** — see Planned |
 
 Verified end to end in a browser on 2026-09-25: detection, validation, model
 call, caching and the panel.
 
 ## Planned
 
-**Follow-up chat.** After the analysis, keep talking to the coach about the
-solution. Most of the machinery exists — `lib/model.ts` already calls the
-Messages API, so more turns means appending to `messages[]`, and the system
-prompt already sits behind a `cache_control` breakpoint, which matters once
-history is resent every turn. Three things to get right:
+**Ask the coach.** Two buttons on the panel: explain *why* the time and space
+complexity are what they are, and give one thing to remember from this
+optimization for next time.
 
-1. The conversation must live in `chrome.storage`. Chrome kills an idle MV3
-   service worker after ~30s and module-level state does not survive.
-2. Streaming needs `browser.runtime.connect()` ports — `sendMessage` is
-   request/response only. This is the one genuinely new piece.
-3. Cheapest path: treat the initial analysis as turn 1 and persist the
-   `messages[]` array keyed by submission id, so chat is an addition rather
-   than a refactor. **Worth deciding before building more on `analyze()`.**
+Deliberately not an open chat. Each button is a single stateless call carrying
+the problem, the code and the existing analysis — so there is no conversation
+to persist, which matters because Chrome kills an idle MV3 service worker after
+~30s, and no streaming, which would otherwise need `runtime.connect()` ports
+rather than `sendMessage`. It is also a better fit for a learning tool: a blank
+chat box requires already knowing what to ask, while named buttons teach which
+questions are worth asking.
 
-The submitted code must stay fenced as untrusted data on every turn, not just
-the first.
+Roughly: two more builders in `lib/prompt.ts`, a plain `ask()` in
+`lib/model.ts` returning text instead of parsed JSON, two buttons in
+`components/Panel.tsx`. The takeaway should be persisted into the history
+record next to `verdict` and `patterns` — it is the most reusable thing this
+produces, and it is what would make spaced repetition worth building.
 
 ## How it works
 
