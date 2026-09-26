@@ -53,6 +53,35 @@ Roughly: two more builders in `lib/prompt.ts`, a plain `ask()` in
 record next to `verdict` and `patterns` — it is the most reusable thing this
 produces, and it is what would make spaced repetition worth building.
 
+**Daily spend cap + usage log.** A hard ceiling on spend per day, and a
+readable log of where it went.
+
+"Never surpassed" rules out recording usage and blocking once over, which
+overshoots by one call. It needs a pre-flight worst-case check: before calling,
+compute the maximum this call could cost - actual input tokens plus `max_tokens`
+at the output rate - and refuse if `spent + worstCase > cap`. Slightly
+conservative, never breaches.
+
+```
+local:usage  ->  { "2026-09-26": { calls, inputTokens, outputTokens, cents } }
+local:caps   ->  { dailyCents, dailyCalls }
+```
+
+Two caps rather than one: a call-count cap catches a runaway loop faster than a
+cost cap does on a cheap model. Prerequisite is structured pricing in
+`lib/providers.ts`, which currently holds display strings.
+
+Low urgency on Subconscious, where $7 is ~23,000 analyses. Worth having before
+switching to Anthropic, where it is ~350.
+
+### Known limits
+
+- The canonical cache is unbounded. `chrome.storage.local` caps around 10 MB, so
+  a few thousand cached solutions would make `setCanonical` throw on every
+  submission. Needs either the `unlimitedStorage` permission or LRU eviction.
+- `lang` falls back to `'unknown'`, so submissions with no detected language
+  share one cache entry.
+
 ## How it works
 
 ```
