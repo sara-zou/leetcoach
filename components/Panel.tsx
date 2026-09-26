@@ -1,8 +1,11 @@
 import { useSyncExternalStore, useState, useEffect } from 'react';
-import type { PanelStore, PanelState } from '../lib/panel-store';
+import type { PanelStore, PanelState, FollowupKind, Followups } from '../lib/panel-store';
 import { shouldAutoOpen } from '../lib/panel-store';
 
-export function Panel({ store }: { store: PanelStore }) {
+/** Supplied by the content script, so this component stays free of browser APIs. */
+export type AskFn = (kind: FollowupKind) => void;
+
+export function Panel({ store, onAsk }: { store: PanelStore; onAsk: AskFn }) {
   const state = useSyncExternalStore(
     (cb) => store.subscribe(cb),
     () => store.get(),
@@ -32,12 +35,12 @@ export function Panel({ store }: { store: PanelStore }) {
         <strong>LeetCoach</strong>
         <button className="lc-x" onClick={() => setOpen(false)} aria-label="Close">×</button>
       </header>
-      <Body state={state} />
+      <Body state={state} onAsk={onAsk} />
     </div>
   );
 }
 
-function Body({ state }: { state: PanelState }) {
+function Body({ state, onAsk }: { state: PanelState; onAsk: AskFn }) {
   if (state.status === 'analyzing') return <Analyzing startedAt={state.startedAt} />;
   if (state.status === 'error') return <Failed state={state} />;
   if (state.status !== 'done') return null;
@@ -74,7 +77,43 @@ function Body({ state }: { state: PanelState }) {
         </div>
       )}
 
+      <Followups map={state.followups} onAsk={onAsk} />
+
       <footer>{(ms / 1000).toFixed(1)}s{cacheHit ? ' · cached' : ''}</footer>
+    </div>
+  );
+}
+
+const QUESTIONS: { kind: FollowupKind; label: string }[] = [
+  { kind: 'complexity', label: 'Why these complexities?' },
+  { kind: 'takeaway', label: 'What should I remember?' },
+];
+
+function Followups({ map, onAsk }: { map: Followups; onAsk: AskFn }) {
+  return (
+    <div className="lc-ask">
+      <div className="lc-askrow">
+        {QUESTIONS.map(({ kind, label }) => (
+          <button
+            key={kind}
+            className="lc-askbtn"
+            onClick={() => onAsk(kind)}
+            disabled={map[kind]?.status === 'loading'}
+          >
+            {map[kind]?.status === 'loading' ? 'asking…' : label}
+          </button>
+        ))}
+      </div>
+      {QUESTIONS.map(({ kind, label }) => {
+        const f = map[kind];
+        if (!f || f.status === 'loading') return null;
+        return (
+          <div key={kind} className={`lc-answer ${kind}`}>
+            <span className="lc-qlabel">{label}</span>
+            <p>{f.status === 'done' ? f.text : f.message}</p>
+          </div>
+        );
+      })}
     </div>
   );
 }

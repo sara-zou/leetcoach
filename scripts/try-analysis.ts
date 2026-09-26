@@ -9,7 +9,7 @@
  * better parser fixtures than anything we invent.
  */
 import { writeFileSync } from 'node:fs';
-import { analyze } from '../lib/model.ts';
+import { analyze, askFollowup } from '../lib/model.ts';
 import { PROVIDERS, defaultModel, type ProviderId } from '../lib/providers.ts';
 
 const providerId = (process.argv[2] ?? 'subconscious') as ProviderId;
@@ -65,6 +65,21 @@ if (a.canonical) {
   console.log(`\ncanonical (${a.canonical.language}):`);
   console.log(a.canonical.code.split('\n').map((l) => '  ' + l).join('\n'));
 }
+// ---- follow-ups ----
+// Worth eyeballing: the takeaway is supposed to be transferable to a DIFFERENT
+// problem. If it says "use a hash map for Two Sum", the prompt needs work.
+const input = { slug: 'two-sum', title: 'Two Sum', lang: 'python3', code: BRUTE_FORCE };
+for (const kind of ['complexity', 'takeaway'] as const) {
+  const f = await askFollowup({ providerId, model, apiKey }, kind, input, a);
+  console.log(`\n── ${kind} ──`);
+  if (f.ok) {
+    console.log(f.text.split('\n').map((l) => '  ' + l).join('\n'));
+    console.log(`  [${f.ms}ms · in ${f.usage.input_tokens} / out ${f.usage.output_tokens}]`);
+  } else {
+    console.log(`  FAILED (${f.kind}): ${f.message}`);
+  }
+}
+
 if (process.env.LEETCOACH_SAVE) {
   writeFileSync(process.env.LEETCOACH_SAVE, result.raw);
   console.log(`\nraw response -> ${process.env.LEETCOACH_SAVE}`);

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { browser } from '#imports';
-import { PROVIDERS, DEFAULT_PROVIDER, defaultModel, type ProviderId } from '../../lib/providers';
+import { PROVIDERS, DEFAULT_PROVIDER, defaultModel, priceNote, type ProviderId } from '../../lib/providers';
 import { providerItem, apiKeysItem, modelsItem } from '../../lib/storage';
 import './App.css';
 
@@ -82,7 +82,7 @@ export default function App() {
         >
           {provider.models.map((m) => (
             <option key={m.id} value={m.id}>
-              {m.label}{m.note ? ` — ${m.note}` : ''}
+              {m.label} — {priceNote(m)}
             </option>
           ))}
         </select>

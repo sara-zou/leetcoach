@@ -163,3 +163,29 @@ footer {
 @media (prefers-reduced-motion: reduce) {
   .lc-spin { animation-duration: 2s; }
 }
+
+.lc-ask { border-top: 1px solid var(--line); padding-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.lc-askrow { display: flex; gap: 6px; flex-wrap: wrap; }
+
+.lc-askbtn {
+  flex: 1 1 auto;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.lc-askbtn:hover:not(:disabled) { border-color: var(--muted); }
+.lc-askbtn:disabled { opacity: 0.5; cursor: default; }
+
+.lc-answer { background: var(--code-bg); border-radius: 8px; padding: 9px 11px; }
+.lc-answer p { margin: 3px 0 0; font-size: 12px; line-height: 1.6; }
+.lc-answer.takeaway { border-left: 3px solid #2563eb; }
+.lc-qlabel {
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--muted); font-weight: 600;
+}

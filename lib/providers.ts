@@ -16,8 +16,24 @@ export type Provider = {
   keysUrl: string;
   /** Anthropic supports output_config.format; others need JSON-by-prompt. */
   nativeStructuredOutput: boolean;
-  models: { id: string; label: string; note?: string }[];
+  models: Model[];
 };
+
+/** Prices are USD per million tokens. Structured, not display strings, so the
+ *  spend cap can do arithmetic on them. */
+export type Model = {
+  id: string;
+  label: string;
+  inputPer1M: number;
+  outputPer1M: number;
+};
+
+export const priceNote = (m: Model) =>
+  `$${m.inputPer1M} / $${m.outputPer1M} per Mtok`;
+
+/** USD for a single call. */
+export const costOf = (m: Model, inputTokens: number, outputTokens: number) =>
+  (inputTokens * m.inputPer1M + outputTokens * m.outputPer1M) / 1e6;
 
 export const PROVIDERS: Record<ProviderId, Provider> = {
   subconscious: {
@@ -27,9 +43,9 @@ export const PROVIDERS: Record<ProviderId, Provider> = {
     keysUrl: 'https://www.subconscious.dev/',
     nativeStructuredOutput: false,
     models: [
-      { id: 'subconscious/deepseek-v4.1-flash-marathon', label: 'DeepSeek V4.1 Flash', note: '$0.14 / $0.28 per Mtok' },
-      { id: 'subconscious/glm-5.3-marathon', label: 'GLM 5.3', note: '$1.40 / $4.40 per Mtok' },
-      { id: 'subconscious/tim-qwen3.6-27b', label: 'Qwen3.6 27B' },
+      { id: 'subconscious/deepseek-v4.1-flash-marathon', label: 'DeepSeek V4.1 Flash', inputPer1M: 0.14, outputPer1M: 0.28 },
+      { id: 'subconscious/glm-5.3-marathon', label: 'GLM 5.3', inputPer1M: 1.40, outputPer1M: 4.40 },
+      { id: 'subconscious/tim-qwen3.6-27b', label: 'Qwen3.6 27B', inputPer1M: 0.30, outputPer1M: 3.00 },
     ],
   },
   anthropic: {
@@ -38,9 +54,9 @@ export const PROVIDERS: Record<ProviderId, Provider> = {
     keysUrl: 'https://console.anthropic.com/settings/keys',
     nativeStructuredOutput: true,
     models: [
-      { id: 'claude-opus-5', label: 'Opus 5', note: '$5 / $25 per Mtok' },
-      { id: 'claude-sonnet-5', label: 'Sonnet 5', note: '$2 / $10 per Mtok' },
-      { id: 'claude-haiku-4-5', label: 'Haiku 4.5', note: '$1 / $5 per Mtok' },
+      { id: 'claude-opus-5', label: 'Opus 5', inputPer1M: 5, outputPer1M: 25 },
+      { id: 'claude-sonnet-5', label: 'Sonnet 5', inputPer1M: 2, outputPer1M: 10 },
+      { id: 'claude-haiku-4-5', label: 'Haiku 4.5', inputPer1M: 1, outputPer1M: 5 },
     ],
   },
 };
@@ -51,3 +67,8 @@ export const resolveProvider = (id: string): Provider =>
   PROVIDERS[id as ProviderId] ?? PROVIDERS[DEFAULT_PROVIDER];
 
 export const defaultModel = (id: string): string => resolveProvider(id).models[0]!.id;
+
+export function findModel(providerId: string, modelId: string): Model {
+  const p = resolveProvider(providerId);
+  return p.models.find((m) => m.id === modelId) ?? p.models[0]!;
+}

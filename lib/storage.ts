@@ -25,18 +25,69 @@ export const modelsItem = storage.defineItem<Record<string, string>>('local:mode
 });
 
 export type HistoryEntry = {
+  /** Submission id. Optional so older entries stay readable without a migration. */
+  id?: string;
   slug: string;
   solvedAt: number;
   verdict: Analysis['verdict'];
   patterns: string[];
   language: string;
   runtimePercentile?: number;
+  /** Filled in later, if the user asks for it. The most re-readable thing the
+   *  extension produces, and what would make spaced repetition worth building. */
+  takeaway?: string;
 };
+
+/**
+ * Serialises writes. appendHistory is read-modify-write, so two submissions
+ * finishing close together would both read the same array and the second write
+ * would drop the first entry. There is only ever one background worker, so
+ * chaining promises is a sufficient lock.
+ */
+let historyQueue: Promise<unknown> = Promise.resolve();
 
 export const historyItem = storage.defineItem<HistoryEntry[]>('local:history', {
   fallback: [],
   version: 1,
 });
+
+/**
+ * What a follow-up needs to ask about a submission: the problem, the code and
+ * the analysis already shown.
+ *
+ * Kept in `session:` rather than `local:` — it is only useful while the panel
+ * showing that analysis is still on screen, and session storage is cleared when
+ * the browser closes, so this never accumulates. It does survive the service
+ * worker being killed, which a module-level Map would not.
+ */
+export type SubmissionContext = {
+  slug: string;
+  lang: string;
+  code: string;
+  analysis: Analysis;
+};
+
+const contextKey = (id: string) => `session:context:${id}` as const;
+
+export async function setContext(id: string, ctx: SubmissionContext): Promise<void> {
+  await storage.setItem(contextKey(id), ctx);
+}
+
+export async function getContext(id: string): Promise<SubmissionContext | null> {
+  return (await storage.getItem<SubmissionContext>(contextKey(id))) ?? null;
+}
+
+/** Attach a takeaway to an already-recorded submission. */
+export function setHistoryTakeaway(id: string, takeaway: string): Promise<void> {
+  historyQueue = historyQueue.then(async () => {
+    const history = await historyItem.getValue();
+    const entry = history.find((h) => h.id === id);
+    if (!entry) return;
+    entry.takeaway = takeaway;
+    await historyItem.setValue(history);
+  }).catch((e) => { console.error('[leetcoach] takeaway write failed', e); });
+  return historyQueue as Promise<void>;
+}
 
 /** Canonical solutions are cached forever, keyed by problem + language. */
 export const canonicalKey = (slug: string, lang: string) =>
@@ -49,14 +100,6 @@ export async function getCanonical(slug: string, lang: string): Promise<string |
 export async function setCanonical(slug: string, lang: string, code: string): Promise<void> {
   await storage.setItem(canonicalKey(slug, lang), code);
 }
-
-/**
- * Serialises writes. appendHistory is read-modify-write, so two submissions
- * finishing close together would both read the same array and the second write
- * would drop the first entry. There is only ever one background worker, so
- * chaining promises is a sufficient lock.
- */
-let historyQueue: Promise<unknown> = Promise.resolve();
 
 export function appendHistory(entry: HistoryEntry): Promise<void> {
   historyQueue = historyQueue.then(async () => {

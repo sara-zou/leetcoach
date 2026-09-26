@@ -1,6 +1,6 @@
 import ReactDOM from 'react-dom/client';
 import { decode, parseTerminal } from '../../lib/protocol';
-import { PanelStore } from '../../lib/panel-store';
+import { PanelStore, type FollowupKind } from '../../lib/panel-store';
 import { Panel } from '../../components/Panel';
 import './style.css';
 
@@ -21,6 +21,33 @@ export default defineContentScript({
     const store = new PanelStore();
     let lastNetworkVerdictAt = 0;
 
+    /**
+     * Ask a follow-up about whatever the panel is currently showing.
+     *
+     * Sends only the submission id — the background reads the problem, code and
+     * analysis back from session storage, so nothing large crosses the boundary
+     * and the background never re-trusts content-script data.
+     */
+    async function ask(kind: FollowupKind) {
+      const state = store.get();
+      if (state.status !== 'done') return;
+      if (!store.startFollowup(kind)) return; // already in flight
+
+      try {
+        const result = await browser.runtime.sendMessage({
+          type: 'FOLLOWUP', id: state.id, kind,
+        });
+        store.resolveFollowup(kind, result);
+      } catch (err) {
+        store.resolveFollowup(kind, {
+          ok: false,
+          message: /context invalidated/i.test(String(err))
+            ? 'The extension reloaded. Submit again.'
+            : 'Lost contact with the extension.',
+        });
+      }
+    }
+
     // ---- mount the panel in a shadow root ----
     // Shadow DOM so LeetCode's CSS cannot reach our markup and ours cannot
     // leak into theirs. Async because WXT fetches the stylesheet.
@@ -33,7 +60,7 @@ export default defineContentScript({
         const host = document.createElement('div');
         container.append(host);
         const root = ReactDOM.createRoot(host);
-        root.render(<Panel store={store} />);
+        root.render(<Panel store={store} onAsk={ask} />);
         return root;
       },
       onRemove: (root) => root?.unmount(),

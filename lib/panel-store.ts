@@ -3,11 +3,22 @@
  * listener and tested without a DOM.
  */
 import type { Analysis } from './analysis.ts';
+import type { FollowupKind } from './prompt.ts';
+
+export type { FollowupKind };
+
+/** A follow-up answer, or where it's got to. */
+export type Followup =
+  | { status: 'loading' }
+  | { status: 'done'; text: string }
+  | { status: 'error'; message: string };
+
+export type Followups = Partial<Record<FollowupKind, Followup>>;
 
 export type PanelState =
   | { status: 'idle' }
   | { status: 'analyzing'; slug: string; startedAt: number }
-  | { status: 'done'; slug: string; analysis: Analysis; ms: number; cacheHit: boolean }
+  | { status: 'done'; slug: string; id: string; analysis: Analysis; ms: number; cacheHit: boolean; followups: Followups }
   | { status: 'error'; slug: string; kind: string; message: string };
 
 export type Listener = (s: PanelState) => void;
@@ -54,9 +65,11 @@ export class PanelStore {
       this.set({
         status: 'done',
         slug,
+        id: submissionId,
         analysis: result.analysis,
         ms: result.ms ?? 0,
         cacheHit: !!result.cacheHit,
+        followups: {}, // fresh per submission; never carried over
       });
     } else {
       this.set({
@@ -67,6 +80,27 @@ export class PanelStore {
       });
     }
     return true;
+  }
+
+  /** Mark a follow-up as in flight. No-ops unless a result is on screen. */
+  startFollowup(kind: FollowupKind): boolean {
+    if (this.state.status !== 'done') return false;
+    if (this.state.followups[kind]?.status === 'loading') return false; // already asked
+    this.setFollowup(kind, { status: 'loading' });
+    return true;
+  }
+
+  resolveFollowup(kind: FollowupKind, result: any) {
+    if (this.state.status !== 'done') return false; // a new submission landed meanwhile
+    this.setFollowup(kind, result?.ok && result.text
+      ? { status: 'done', text: result.text }
+      : { status: 'error', message: result?.message ?? 'Could not get an answer.' });
+    return true;
+  }
+
+  private setFollowup(kind: FollowupKind, value: Followup) {
+    if (this.state.status !== 'done') return;
+    this.set({ ...this.state, followups: { ...this.state.followups, [kind]: value } });
   }
 
   dismiss() {

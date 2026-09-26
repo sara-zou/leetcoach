@@ -54,7 +54,7 @@ test('failures surface as errors rather than vanishing', () => {
 
 test('auto-open: nags about suboptimal, stays quiet when you got it right', () => {
   const mk = (verdict: string): PanelState =>
-    ({ status: 'done', slug: 'x', analysis: analysis(verdict) as any, ms: 1, cacheHit: false });
+    ({ status: 'done', slug: 'x', id: '1', analysis: analysis(verdict) as any, ms: 1, cacheHit: false, followups: {} });
 
   assert.equal(shouldAutoOpen(mk('suboptimal')), true);
   assert.equal(shouldAutoOpen(mk('acceptable')), true);
@@ -69,7 +69,7 @@ test('auto-open follows the whole transition, not just the opening half', () => 
   // leaves it stuck open and every clean solve gets interrupted.
   const analyzing: PanelState = { status: 'analyzing', slug: 'two-sum', startedAt: 0 };
   const done = (verdict: string): PanelState =>
-    ({ status: 'done', slug: 'two-sum', analysis: analysis(verdict) as any, ms: 1, cacheHit: false });
+    ({ status: 'done', slug: 'two-sum', id: '1', analysis: analysis(verdict) as any, ms: 1, cacheHit: false, followups: {} });
 
   assert.equal(shouldAutoOpen(analyzing), true, 'opens to show progress');
   assert.equal(shouldAutoOpen(done('optimal')), false, 'and must close again on a clean solve');
@@ -105,4 +105,68 @@ test('the slug survives into both done and error states', () => {
     s.resolve('1', reply);
     assert.equal((s.get() as any).slug, 'diameter-of-binary-tree');
   }
+});
+
+test('follow-ups only work once a result is on screen', () => {
+  const s = new PanelStore();
+  assert.equal(s.startFollowup('takeaway'), false, 'nothing to ask about yet');
+  s.startAnalyzing('1', 'two-sum');
+  assert.equal(s.startFollowup('takeaway'), false, 'still analysing');
+
+  s.resolve('1', { ok: true, analysis: analysis('suboptimal'), ms: 1 });
+  assert.equal(s.startFollowup('takeaway'), true);
+  assert.equal((s.get() as any).followups.takeaway.status, 'loading');
+});
+
+test('asking twice while in flight does not fire a second call', () => {
+  const s = new PanelStore();
+  s.startAnalyzing('1', 'two-sum');
+  s.resolve('1', { ok: true, analysis: analysis('suboptimal'), ms: 1 });
+  assert.equal(s.startFollowup('complexity'), true);
+  assert.equal(s.startFollowup('complexity'), false, 'double-click must not cost twice');
+});
+
+test('a follow-up answer lands without disturbing the analysis', () => {
+  const s = new PanelStore();
+  s.startAnalyzing('1', 'two-sum');
+  s.resolve('1', { ok: true, analysis: analysis('suboptimal'), ms: 1 });
+  s.startFollowup('takeaway');
+  s.resolveFollowup('takeaway', { ok: true, text: 'Record as you go.' });
+
+  const st = s.get() as any;
+  assert.equal(st.status, 'done');
+  assert.equal(st.followups.takeaway.text, 'Record as you go.');
+  assert.equal(st.analysis.verdict, 'suboptimal', 'analysis untouched');
+});
+
+test('follow-ups are cleared by a new submission', () => {
+  const s = new PanelStore();
+  s.startAnalyzing('1', 'two-sum');
+  s.resolve('1', { ok: true, analysis: analysis('suboptimal'), ms: 1 });
+  s.startFollowup('takeaway');
+  s.resolveFollowup('takeaway', { ok: true, text: 'old answer' });
+
+  s.startAnalyzing('2', 'add-two-numbers');
+  s.resolve('2', { ok: true, analysis: analysis('optimal'), ms: 1 });
+  assert.deepEqual((s.get() as any).followups, {}, 'must not show the previous problem answer');
+});
+
+test('a follow-up reply arriving after a new submission is dropped', () => {
+  const s = new PanelStore();
+  s.startAnalyzing('1', 'two-sum');
+  s.resolve('1', { ok: true, analysis: analysis('suboptimal'), ms: 1 });
+  s.startFollowup('complexity');
+  s.startAnalyzing('2', 'add-two-numbers');           // user submits again
+
+  assert.equal(s.resolveFollowup('complexity', { ok: true, text: 'stale' }), false);
+  assert.equal(s.get().status, 'analyzing');
+});
+
+test('a failed follow-up shows an error, not a stuck spinner', () => {
+  const s = new PanelStore();
+  s.startAnalyzing('1', 'two-sum');
+  s.resolve('1', { ok: true, analysis: analysis('suboptimal'), ms: 1 });
+  s.startFollowup('complexity');
+  s.resolveFollowup('complexity', { ok: false, kind: 'auth', message: 'bad key' });
+  assert.equal((s.get() as any).followups.complexity.status, 'error');
 });
