@@ -216,6 +216,39 @@ even when both axes fire, and there is a test pinning that.
 
 ---
 
+## 11. History is a full options page, not a popup tab
+
+**Decision.** A separate `entrypoints/options` page, opened in a tab
+(`open_in_tab: true`), rather than a second tab inside the existing popup.
+
+**Why.** The popup is 340px wide, which is fine for an API key and a model
+dropdown and hopeless for a six-column pattern table. More decisively, a popup
+closes the moment focus moves — wrong for something you sit and read, and it
+would make "open the problem in a new tab" close the thing you were reading
+from.
+
+**Why it reads storage directly.** It is an extension page, so it already has
+the privilege a content script deliberately lacks. Routing through the
+background worker would buy nothing: no API key is involved, and the worker is
+asleep most of the time. This is the one place outside the background that
+touches `local:history` directly.
+
+**The side benefit.** `historyItem.getValue()` runs the migration chain, so
+opening this page is how you find out whether a migration did the right thing
+to your existing records. It is the closest thing to a test for migrations,
+which are otherwise only exercised on real stored data.
+
+**Clearing is two steps.** There is no undo and no copy anywhere else, so
+"Clear history" arms a second button rather than acting. Export lands first in
+the button order for the same reason.
+
+**Revisit if:** the page needs to write as well as read — marking a takeaway
+reviewed, say, for spaced repetition. Concurrent writes from two surfaces would
+need the `appendHistory` lock to become cross-context, which a promise chain in
+one worker is not.
+
+---
+
 ## 8. `unlimitedStorage`, rather than evicting
 
 **Decision.** Take the permission instead of adding LRU eviction to the

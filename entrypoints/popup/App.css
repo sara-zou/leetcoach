@@ -116,3 +116,7 @@ code {
 .sev.nit { background: #f1f5f9; color: #475569; }
 
 .hint.ok { color: #15803d; }
+
+.titlebar { display: flex; align-items: baseline; justify-content: space-between; }
+.linkbtn { background: none; border: 0; padding: 0; color: #2563eb; font-size: 11px; cursor: pointer; }
+.linkbtn:hover { text-decoration: underline; }

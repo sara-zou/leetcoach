@@ -41,7 +41,12 @@ export default function App() {
 
   return (
     <main>
-      <h1>LeetCoach</h1>
+      <div className="titlebar">
+        <h1>LeetCoach</h1>
+        <button className="linkbtn" onClick={() => browser.runtime.openOptionsPage()}>
+          history →
+        </button>
+      </div>
 
       <div className="tabs">
         {Object.values(PROVIDERS).map((p) => (

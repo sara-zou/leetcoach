@@ -7,7 +7,7 @@ optimal solution and a critique of the code you actually wrote.
 
 ```bash
 npm install
-npm test                                  # 108 tests, no browser, no key
+npm test                                  # 111 tests, no browser, no key
 LEETCOACH_KEY=… npm run try               # real prompt -> real model -> real parser
 npm run dev                               # opens Chrome with the extension loaded
 ```
@@ -26,9 +26,11 @@ npm run dev                               # opens Chrome with the extension load
 | `lib/model.ts` — provider-agnostic call | done, works on Subconscious + Anthropic |
 | `entrypoints/background.ts` — orchestration | done |
 | `entrypoints/popup` — settings | done |
+| `entrypoints/options` — history page | done |
 | `components/Panel.tsx` — results panel | done, shadow-root React |
-| history / weak-pattern stats | **not built** |
-| "ask the coach" buttons | **not built** — see Planned |
+| `lib/history.ts` — weak-pattern stats | done, rendered by the options page |
+| "ask the coach" buttons | done |
+| daily spend cap | **not built** — see Planned |
 
 Verified end to end in a browser on 2026-09-25: detection, validation, model
 call, caching and the panel.
@@ -36,24 +38,6 @@ call, caching and the panel.
 Design decisions and what would make each worth revisiting: [DECISIONS.md](DECISIONS.md).
 
 ## Planned
-
-**Ask the coach.** Two buttons on the panel: explain *why* the time and space
-complexity are what they are, and give one thing to remember from this
-optimization for next time.
-
-Deliberately not an open chat. Each button is a single stateless call carrying
-the problem, the code and the existing analysis — so there is no conversation
-to persist, which matters because Chrome kills an idle MV3 service worker after
-~30s, and no streaming, which would otherwise need `runtime.connect()` ports
-rather than `sendMessage`. It is also a better fit for a learning tool: a blank
-chat box requires already knowing what to ask, while named buttons teach which
-questions are worth asking.
-
-Roughly: two more builders in `lib/prompt.ts`, a plain `ask()` in
-`lib/model.ts` returning text instead of parsed JSON, two buttons in
-`components/Panel.tsx`. The takeaway should be persisted into the history
-record next to `verdict` and `patterns` — it is the most reusable thing this
-produces, and it is what would make spaced repetition worth building.
 
 **Daily spend cap + usage log.** A hard ceiling on spend per day, and a
 readable log of where it went.

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseAnalysis, extractJson } from '../lib/analysis.ts';
+import { parseAnalysis, extractJson, verdictLabel, verdictClass } from '../lib/analysis.ts';
 
 const good = {
   verdict: 'suboptimal',
@@ -160,4 +160,27 @@ test('"failed" is no longer a verdict', () => {
   // It only restated `outcome`. Rejecting it here keeps a stale model reply or
   // an unmigrated record from quietly reintroducing the collapsed axis.
   assert.equal(parseAnalysis(JSON.stringify({ ...good, verdict: 'failed' })), null);
+});
+
+// --- labelling -----------------------------------------------------------
+// The panel and the history page both render results, and they must not drift
+// into calling the same record different things — hence one shared function.
+
+test('a rejection is named by both axes, without repeating itself', () => {
+  assert.equal(verdictLabel('missed', false), 'rejected · missed a better approach');
+  assert.equal(verdictLabel('suboptimal', false), 'rejected · right idea, wasteful');
+  // "rejected · incorrect" would say the same thing twice.
+  assert.equal(verdictLabel('incorrect', false), 'rejected');
+});
+
+test('an accepted solve is named by the verdict alone', () => {
+  assert.equal(verdictLabel('optimal', true), 'optimal');
+  assert.equal(verdictLabel('missed', true), 'missed a better approach');
+});
+
+test('colour follows the judge, not the verdict', () => {
+  // A rejected TLE carries verdict "missed", the same as an accepted-but-slow
+  // solve. Only the outcome keeps them visually apart.
+  assert.equal(verdictClass('missed', false), 'rejected');
+  assert.equal(verdictClass('missed', true), 'missed');
 });

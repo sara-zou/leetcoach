@@ -27,6 +27,28 @@ export type Severity = 'major' | 'minor' | 'nit';
  */
 export type Verdict = 'optimal' | 'suboptimal' | 'missed' | 'incorrect';
 
+/**
+ * How the two axes read as one line, in every surface that shows a result.
+ *
+ * Lives next to the scale rather than in a component because the panel and the
+ * history page must not drift into calling the same record different things.
+ * "rejected · missed a better approach" is a TLE; "rejected" alone is a Wrong
+ * Answer, where naming the gap again would only repeat itself.
+ */
+export function verdictLabel(verdict: string, accepted: boolean): string {
+  const nature =
+    verdict === 'optimal' ? 'optimal'
+    : verdict === 'suboptimal' ? 'right idea, wasteful'
+    : verdict === 'missed' ? 'missed a better approach'
+    : 'incorrect';
+  if (accepted) return nature;
+  return verdict === 'incorrect' ? 'rejected' : `rejected · ${nature}`;
+}
+
+/** The CSS modifier for a result: outcome decides the colour, not the verdict. */
+export const verdictClass = (verdict: string, accepted: boolean): string =>
+  accepted ? verdict : 'rejected';
+
 export type Finding = {
   severity: Severity;
   title: string;

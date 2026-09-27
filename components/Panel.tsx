@@ -1,6 +1,7 @@
 import { useSyncExternalStore, useState, useEffect } from 'react';
 import type { PanelStore, PanelState, FollowupKind, Followups } from '../lib/panel-store';
 import { shouldAutoOpen } from '../lib/panel-store';
+import { verdictLabel, verdictClass } from '../lib/analysis';
 
 /** Supplied by the content script, so this component stays free of browser APIs. */
 export type AskFn = (kind: FollowupKind) => void;
@@ -51,7 +52,7 @@ function Body({ state, onAsk }: { state: PanelState; onAsk: AskFn }) {
       {/* The badge is coloured by the judge's outcome and worded by the verdict,
           so a rejection stays unmistakably red even when the verdict is the
           same "missed" an accepted solution could earn. */}
-      <div className={`lc-verdict ${accepted ? a.verdict : 'rejected'}`}>
+      <div className={`lc-verdict ${verdictClass(a.verdict, accepted)}`}>
         {verdictLabel(a.verdict, accepted)}
       </div>
 
@@ -173,19 +174,4 @@ function Failed({ state }: { state: Extract<PanelState, { status: 'error' }> }) 
       {hint && <p className="lc-hint">{hint}</p>}
     </div>
   );
-}
-
-/**
- * The two axes read as one line: what the judge did, then what went wrong.
- * "rejected · missed a better approach" is a TLE; "rejected" alone is a Wrong
- * Answer, where naming the gap again would only repeat itself.
- */
-function verdictLabel(v: string, accepted: boolean): string {
-  const nature =
-    v === 'optimal' ? 'optimal'
-    : v === 'suboptimal' ? 'right idea, wasteful'
-    : v === 'missed' ? 'missed a better approach'
-    : 'incorrect';
-  if (accepted) return nature;
-  return v === 'incorrect' ? 'rejected' : `rejected · ${nature}`;
 }

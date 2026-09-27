@@ -4,7 +4,7 @@ import { defineConfig } from 'wxt';
 export default defineConfig({
   modules: ['@wxt-dev/module-react'],
   manifest: {
-    name: 'LeetCoach (Phase 0 spike)',
+    name: 'LeetCoach',
     description: 'Post-submission analysis for LeetCode.',
     // `unlimitedStorage` removes the ~10 MB cap on chrome.storage.local.
     // Without it the canonical-solution cache eventually fills, and then every
