@@ -249,6 +249,32 @@ one worker is not.
 
 ---
 
+## 12. Migrations live outside `lib/storage.ts`
+
+**Decision.** The history migration chain is in `lib/migrations.ts`, a plain
+module over plain arrays, and `storage.ts` passes it to `defineItem`.
+
+**Why.** `storage.ts` imports `#imports`, which exists only inside a WXT build,
+so node cannot load it and nothing in it can be tested. That left the
+migrations untested *and* only ever executed against real stored history —
+which is also the moment a bug destroys the records it is rewriting. Every
+other risky thing in this project was pulled out for the same reason:
+`detect.ts` and `patch.ts` are importless so they can be tested without a
+browser.
+
+**What it bought.** 16 tests, including the chain itself: each step can be
+right in isolation and still compose wrongly, and only the oldest records run
+the whole chain. Validated by injecting three bugs — flattening v3 rejections
+to `incorrect`, running the chain backwards, and turning the v1 downgrade into
+an upgrade — all three caught.
+
+**Revisit if:** a migration ever needs to read something other than the
+entries, such as a storage key written by a different version. It would then
+need its dependencies passed in rather than imported, and the plain-function
+shape stops being enough.
+
+---
+
 ## 8. `unlimitedStorage`, rather than evicting
 
 **Decision.** Take the permission instead of adding LRU eviction to the

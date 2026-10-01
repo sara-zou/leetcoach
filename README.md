@@ -7,7 +7,7 @@ optimal solution and a critique of the code you actually wrote.
 
 ```bash
 npm install
-npm test                                  # 111 tests, no browser, no key
+npm test                                  # 126 tests, no browser, no key
 LEETCOACH_KEY=… npm run try               # real prompt -> real model -> real parser
 npm run dev                               # opens Chrome with the extension loaded
 ```
@@ -29,6 +29,7 @@ npm run dev                               # opens Chrome with the extension load
 | `entrypoints/options` — history page | done |
 | `components/Panel.tsx` — results panel | done, shadow-root React |
 | `lib/history.ts` — weak-pattern stats | done, rendered by the options page |
+| `lib/migrations.ts` — history schema v1→v4 | done, 16 tests |
 | "ask the coach" buttons | done |
 | daily spend cap | **not built** — see Planned |
 

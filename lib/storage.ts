@@ -10,6 +10,7 @@
 import { storage } from '#imports';
 import type { ProviderId } from './providers.ts';
 import type { Analysis } from './analysis.ts';
+import { HISTORY_VERSION, historyMigrations } from './migrations.ts';
 
 export const providerItem = storage.defineItem<ProviderId>('local:provider', {
   fallback: 'subconscious',
@@ -60,10 +61,6 @@ export type StoredAnalysis = Omit<Analysis, 'canonical'>;
 
 export const forStorage = ({ canonical: _drop, ...rest }: Analysis): StoredAnalysis => rest;
 
-/** Time/Memory/Output Limit Exceeded, as the judge spells them. Used only by
- *  the v4 migration, which has nothing but the message to go on. */
-const LIMIT_MSG = /limit exceeded/i;
-
 /**
  * Serialises writes. appendHistory is read-modify-write, so two submissions
  * finishing close together would both read the same array and the second write
@@ -74,44 +71,10 @@ let historyQueue: Promise<unknown> = Promise.resolve();
 
 export const historyItem = storage.defineItem<HistoryEntry[]>('local:history', {
   fallback: [],
-  version: 4,
-  migrations: {
-    // v3 used verdict "failed", which only restated `outcome`. The verdict now
-    // describes the kind of gap instead, so a rejection is "incorrect" unless
-    // it was a limit failure — and we no longer know which it was, since only
-    // `statusMsg` survived. Read it back rather than flattening everything to
-    // "incorrect", which would hide exactly the TLEs this split exists for.
-    4: (entries: any[]): HistoryEntry[] =>
-      (entries ?? []).map((e) => e.analysis?.verdict === 'failed'
-        ? { ...e, analysis: { ...e.analysis, verdict: LIMIT_MSG.test(e.statusMsg ?? '') ? 'missed' : 'incorrect' } }
-        : e),
-
-    // v1 stored only `verdict` and `patterns` at the top level, so a past
-    // analysis could not be reviewed — the findings were never persisted.
-    // Old entries keep what they had; the rest is genuinely gone.
-    // v2 recorded only accepted submissions, so every existing entry is one.
-    3: (entries: any[]): HistoryEntry[] =>
-      (entries ?? []).map((e) => ({ ...e, outcome: 'accepted' as const })),
-
-    2: (entries: any[]): any[] =>
-      (entries ?? []).map((e) => ({
-        id: e.id,
-        slug: e.slug,
-        solvedAt: e.solvedAt,
-        language: e.language,
-        runtimePercentile: e.runtimePercentile,
-        takeaway: e.takeaway,
-        analysis: {
-          // v1 had no "missed" level, so an old "suboptimal" could be either.
-          // Downgrade to the milder reading rather than inventing a failure.
-          verdict: e.verdict === 'optimal' ? 'optimal' : 'suboptimal',
-          patterns: e.patterns ?? [],
-          user: { time: '?', space: '?', reasoning: '' },
-          optimal: { time: '?', space: '?' },
-          findings: [],
-        },
-      })),
-  },
+  version: HISTORY_VERSION,
+  // Defined in lib/migrations.ts, which has no `#imports` dependency and so can
+  // be run — and tested — outside a browser. See the note there.
+  migrations: historyMigrations,
 });
 
 /**
