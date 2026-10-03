@@ -21,7 +21,7 @@ import type { FollowupKind } from '../lib/prompt';
  * persist goes through storage.
  */
 export default defineBackground(() => {
-  console.log('[leetcoach] background ready');
+  console.log(`[leetcoach] background ready — ${browser.runtime.getManifest().version_name}`);
 
   browser.runtime.onMessage.addListener((
     msg: any,
@@ -85,6 +85,12 @@ async function handleFollowup(id: unknown, kind: unknown) {
   // The takeaway is the one artifact worth re-reading later, so it joins the
   // history record rather than living only in a panel that will be closed.
   if (result.ok && kind === 'takeaway') await setHistoryTakeaway(id, result.text);
+
+  console.log(
+    `%c[leetcoach] followup:${kind} — ${result.ok ? 'ok' : result.kind}`,
+    `background:${result.ok ? '#16a34a' : '#dc2626'};color:#fff;padding:2px 6px`,
+    result,
+  );
 
   return result;
 }

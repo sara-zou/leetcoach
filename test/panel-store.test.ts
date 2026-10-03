@@ -190,3 +190,34 @@ test('an absent accepted flag reads as accepted', () => {
   s.resolve('1', { ok: true, analysis: analysis('optimal'), ms: 1 });
   assert.equal((s.get() as any).accepted, true);
 });
+
+// --- the background did not answer ----------------------------------------
+// sendMessage RESOLVES with undefined when no listener handles the message,
+// rather than rejecting. That happens when the running worker is older than
+// the content script — and it cost a whole verification session once, because
+// both paths reported their generic failure and pointed at the model.
+
+test('a silent background is reported as a stale worker, not an empty analysis', () => {
+  const s = new PanelStore();
+  s.startAnalyzing('1', 'two-sum');
+  s.resolve('1', undefined);
+  const st = s.get() as any;
+  assert.equal(st.status, 'error');
+  assert.equal(st.kind, 'no-reply');
+  assert.match(st.message, /older build/);
+});
+
+test('a silent background is distinguished from a failed follow-up', () => {
+  const s = new PanelStore();
+  s.startAnalyzing('1', 'two-sum');
+  s.resolve('1', { ok: true, analysis: analysis('suboptimal'), ms: 1 });
+
+  s.startFollowup('takeaway');
+  s.resolveFollowup('takeaway', undefined);
+  assert.match((s.get() as any).followups.takeaway.message, /older build/);
+
+  s.startFollowup('complexity');
+  s.resolveFollowup('complexity', { ok: false, message: 'Rate limited.' });
+  assert.equal((s.get() as any).followups.complexity.message, 'Rate limited.',
+    'a real error still speaks for itself');
+});

@@ -166,6 +166,7 @@ function Failed({ state }: { state: Extract<PanelState, { status: 'error' }> }) 
     : state.kind === 'reloaded' ? 'The extension reloaded mid-analysis. Submit again.'
     : state.kind === 'disconnected' ? 'Lost contact with the extension. Submit again.'
     : state.kind === 'empty' ? 'The analysis came back empty. Try again.'
+    : state.kind === 'no-reply' ? 'Nothing handled the message, so the worker is probably older than this panel.'
     : null;
   return (
     <div className="lc-body">

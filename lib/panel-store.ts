@@ -30,6 +30,23 @@ export type PanelState =
 
 export type Listener = (s: PanelState) => void;
 
+/**
+ * `browser.runtime.sendMessage` RESOLVES with undefined when no listener
+ * handled the message — it does not reject. In practice that means the running
+ * background worker is older than the content script asking it something, which
+ * is easy to do in development and says nothing about itself.
+ *
+ * Without this both paths report their generic failure ("the analysis came back
+ * empty", "could not get an answer"), which points at the model and hides the
+ * real cause.
+ */
+const NO_REPLY = {
+  kind: 'no-reply',
+  message: 'The background worker did not answer. It may be running an older build — reload the extension at chrome://extensions and submit again.',
+} as const;
+
+const noReply = (result: unknown): boolean => result === undefined || result === null;
+
 export class PanelStore {
   private state: PanelState = { status: 'idle' };
   private listeners = new Set<Listener>();
@@ -68,6 +85,11 @@ export class PanelStore {
 
     // `ok: true` without an analysis would leave Panel dereferencing undefined.
     // It shouldn't happen, but this crosses a message boundary, so don't assume.
+    if (noReply(result)) {
+      this.set({ status: 'error', slug, ...NO_REPLY });
+      return true;
+    }
+
     if (result?.ok && result.analysis) {
       this.set({
         status: 'done',
@@ -102,7 +124,7 @@ export class PanelStore {
     if (this.state.status !== 'done') return false; // a new submission landed meanwhile
     this.setFollowup(kind, result?.ok && result.text
       ? { status: 'done', text: result.text }
-      : { status: 'error', message: result?.message ?? 'Could not get an answer.' });
+      : { status: 'error', message: noReply(result) ? NO_REPLY.message : result?.message ?? 'Could not get an answer.' });
     return true;
   }
 
