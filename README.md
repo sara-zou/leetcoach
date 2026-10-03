@@ -33,8 +33,9 @@ npm run dev                               # opens Chrome with the extension load
 | "ask the coach" buttons | done |
 | daily spend cap | **not built** — see Planned |
 
-Verified end to end in a browser on 2026-09-25: detection, validation, model
-call, caching and the panel.
+Verified end to end in a browser on 2026-10-03: detection, validation, model
+call, canonical caching, the panel, follow-up buttons, failure analysis and
+the history page.
 
 Design decisions and what would make each worth revisiting: [DECISIONS.md](DECISIONS.md).
 
@@ -63,11 +64,16 @@ switching to Anthropic, where it is ~350.
 
 ### Known limits
 
-- The canonical cache is unbounded. `chrome.storage.local` caps around 10 MB, so
-  a few thousand cached solutions would make `setCanonical` throw on every
-  submission. Needs either the `unlimitedStorage` permission or LRU eviction.
+- The canonical cache is unbounded, which `unlimitedStorage` makes survivable
+  rather than correct — see [DECISIONS.md](DECISIONS.md) #8.
 - `lang` falls back to `'unknown'`, so submissions with no detected language
   share one cache entry.
+- A failing test case larger than `MAX_FAILURE_CHARS` (2 KB) is dropped rather
+  than truncated, so for a TLE on a large input the model reasons from the
+  expected output and the code alone. Deliberate — half an input array is
+  worse than none — but it means the richest failures carry the least detail.
+- Only the canonical solution is cached, not the analysis. Resubmitting
+  identical code re-runs the critique at roughly half price.
 
 ## How it works
 
