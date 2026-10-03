@@ -191,7 +191,6 @@ footer {
 
 .lc-answer { background: var(--code-bg); border-radius: 8px; padding: 9px 11px; }
 .lc-answer p { margin: 3px 0 0; font-size: 12px; line-height: 1.6; }
-.lc-answer.takeaway { border-left: 3px solid #2563eb; }
 .lc-qlabel {
   font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em;
   color: var(--muted); font-weight: 600;
